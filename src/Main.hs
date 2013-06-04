@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import qualified Graphics.UI.GLFW   as GLFW
@@ -45,15 +46,19 @@ main = do
     -- Register our window close function.
     GLFW.setWindowCloseCallback shutdown
 
+    blend     $= Enabled
+    blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+
     -- Shader stuff.
     cwd <- getCurrentDirectory
     let shaderDir = cwd </> "data" </> "shaders"
     putStrLn $ "Looking for shaders in '" ++ shaderDir ++ "'"
-    v   <- loadShader $ shaderDir </> "test.vert" :: IO VertexShader
-    f   <- loadShader $ shaderDir </> "test.frag" :: IO FragmentShader
+    v   <- loadShader $ shaderDir </> "color.vert" :: IO VertexShader
+    f   <- loadShader $ shaderDir </> "color.frag" :: IO FragmentShader
     [p] <- genObjectNames 1
     attachedShaders p $= ([v],[f])
     attribLocation p "position" $= AttribLocation 0
+    attribLocation p "color"    $= AttribLocation 1
     linkProgram p
     linked <- get $ linkStatus p
     unless linked $ do
@@ -64,16 +69,18 @@ main = do
     currentProgram $= Just p
     validateProgram p
 
+    -- Enable the attribs.
+
     -- Vertex data things.
-    vbo <- createVbo vertexData
+    ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
 
     -- Register our scene drawing function.
-    GLFW.setWindowRefreshCallback $ drawScene vbo
+    GLFW.setWindowRefreshCallback $ drawScene ivbo --cbo
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\_ _ ->
-       drawScene vbo)
+       drawScene ivbo {-cbo-})
 
-    forever $ drawScene vbo
+    forever $ drawScene ivbo
 
 displayOptions :: GLFW.DisplayOptions
 displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
@@ -90,7 +97,14 @@ displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
 vertexData :: [GLfloat]
 vertexData = [  0.0,  0.9, 0.0
              , -0.9, -0.9, 0.0
-             ,  0.9, -0.9, 0.0 ]
+             ,  0.9, -0.9, 0.0
+             ]
+
+colorData :: [GLfloat]
+colorData = [ 1.0, 0.0, 0.0, 1.0
+            , 0.0, 1.0, 0.0, 1.0
+            , 0.0, 0.0, 1.0, 1.0
+            ]
 
 -- bindVbo :: GLint -> GLuint -> BufferObject -> IO ()
 -- bindVbo size loc vb = do
@@ -98,12 +112,13 @@ vertexData = [  0.0,  0.9, 0.0
 --     bindBuffer ArrayBuffer $= Just vb
 --     vertexAttribPointer (AttribLocation loc) $= (ToFloat, VertexArrayDescriptor size Float 0 nullPtr)
 
-drawScene :: BufferObject -> IO ()
-drawScene vbo = do
+drawScene :: InterleavedVbo -> IO ()
+drawScene ivbo = do
     -- Clear the screen and the depth buffer.
     clear [ColorBuffer, DepthBuffer]
-    bindVbo 3 0 vbo
+    bindInterleavedVbo ivbo
     drawArrays Triangles 0 3
+    printError
     GLFW.swapBuffers
 
 keyPressed :: GLFW.KeyCallback
