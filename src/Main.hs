@@ -8,6 +8,8 @@ import Arbor.Graphics.Shaders
 import Arbor.Graphics.Util
 import Arbor.Graphics.Vbo
 
+import Control.Concurrent.MVar
+
 import Control.Monad         ( void, when, unless, forever )
 import System.Exit           ( exitSuccess )
 import System.Directory      ( getCurrentDirectory )
@@ -16,16 +18,13 @@ import Foreign.Marshal.Array ( withArray )
 import Foreign.Ptr           ( nullPtr )
 import Foreign.Storable      ( sizeOf )
 
-data Shaders = Shaders { vertexShader   :: VertexShader
-                       , fragmentShader :: FragmentShader
-                       , program        :: Program
-                       , fadeFactorU    :: UniformLocation
-                       , texturesU      :: [UniformLocation]
-                       , positionA      :: AttribLocation }
+data AppState = App { appWindowSize :: (Int, Int) }
 
 main :: IO ()
 main = do
     putStrLn "Starting Arborgeddon..."
+
+    appState <- newEmptyMVar
 
     True <- GLFW.initialize
     -- Get a 640 x 480 window.
@@ -77,8 +76,11 @@ main = do
     -- Register our scene drawing function.
     GLFW.setWindowRefreshCallback $ drawScene ivbo --cbo
     -- Register our resize window function.
-    GLFW.setWindowSizeCallback (\_ _ ->
-       drawScene ivbo {-cbo-})
+    GLFW.setWindowSizeCallback (\w h -> do
+        viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
+        _ <- tryTakeMVar appState
+        putMVar appState App{ appWindowSize = (w, h) }
+        drawScene ivbo {-cbo-})
 
     forever $ drawScene ivbo
 
