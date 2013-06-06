@@ -18,12 +18,14 @@ class Point a => Line a where
     intersection :: (a, a) -> (a, a) -> a
 
 class Vectorize a => Matrix a where
+    -- | The zero matrix.
+    zero        :: a
     -- | The identity matrix.
     identity    :: a
     -- | The transpose of the matrix.
     transpose   :: a -> a
     -- | Computes the inverse of the matrix.
-    inverse     :: a -> a
+    inverse     :: a -> Maybe a
     -- | The matrix of cofactors of the given matrix.
     cofactors   :: a -> a
     -- | Computes the multiplication of two matrices.
@@ -32,6 +34,10 @@ class Vectorize a => Matrix a where
     numColumns  :: a -> Int
     -- | The number of rows in the matrix.
     numRows     :: a -> Int
+    -- | A list of the columns.
+    toColumns   :: a -> [[Float]]
+    -- | A list of the rows.
+    toRows      :: a -> [[Float]]
     -- | The minor for an element of `a` at the given row and column.
     minorAt     :: a -> Int -> Int -> Float
     -- | The cofactor for an element of `a` at the given row and column.

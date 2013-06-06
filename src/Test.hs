@@ -1,16 +1,24 @@
 module Main where
 
 import Test.Framework ( Test, defaultMain, testGroup )
+import Data.Maybe     ( fromJust, isNothing )
 
 import Test.Framework.Providers.QuickCheck2
+import Test.QuickCheck
+import Debug.Trace
 
 import Arbor.Data.Vector
+import Arbor.Data.Matrix
+import Arbor.Data.Types
+
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: [Test]
-tests = [ testGroup "Vector Group" vectorTestGroup ]
+tests = [ testGroup "Vector Group" vectorTestGroup
+        , testGroup "Matrix Group" matrixTestGroup
+        ]
 
 vectorTestGroup :: [Test]
 vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
@@ -24,6 +32,12 @@ vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
                   , testProperty "vec4At"      prop_vec4at
                   ]
 
+matrixTestGroup :: [Test]
+matrixTestGroup = [ testProperty "2x2 determinant" prop_mat2_det
+                  , testProperty "2x2 inverse"     prop_mat2_inv
+                  ]
+
+{- Vector -}
 prop_magnitude :: Vector -> Bool
 prop_magnitude vec = magnitude vec == sqrt (sum $ map (**2) vec)
 
@@ -43,12 +57,14 @@ prop_subtract :: Vector -> Vector -> Bool
 prop_subtract v1 v2 = and $ zipWith3 (\a b amb -> a - b == amb) v1 v2 $ v1 `Arbor.Data.Vector.subtract` v2
 
 prop_vecnat :: Int -> Int -> Vector -> Bool
-prop_vecnat n at v = let vecn = vecNAt abn aba v 
+prop_vecnat n at v = let vecn = vecNAt abn aba v
                          abn  = abs n
                          aba  = abs at
                      in
                          null vecn ||
-                         and [length vecn == abn, head vecn == v !! (aba*abn), last vecn == v !! (aba*abn+(abn-1))]
+                             length vecn == abn &&
+                                 head vecn == v !! (aba*abn) &&
+                                     last vecn == v !! (aba*abn+(abn-1))
 
 prop_vec2at :: Int -> Vector -> Bool
 prop_vec2at at v = case vec2At at v of
@@ -61,7 +77,7 @@ prop_vec3at at v = let vec3 = vec3At at v
     case vecn of
         []        -> vec3 == (0,0,0)
         (x:y:z:[])-> vec3 == (x,y,z)
-        _         -> False 
+        _         -> False
 
 prop_vec4at :: Int -> Vector -> Bool
 prop_vec4at at v = let vec4 = vec4At at v
@@ -71,4 +87,23 @@ prop_vec4at at v = let vec4 = vec4At at v
         [x,y,z,w] -> vec4 == (x,y,z,w)
         _         -> False
 
+{- Matrix -}
+prop_mat2_det :: Mat2x2 -> Bool
+prop_mat2_det m@(Mat2x2 a b c d) =
+    a*d - b*c == determinant m
 
+-- prop_mat2_cofactors :: Mat2x2 -> Bool
+-- prop_mat2_cofactors m@(Mat2x2 a b c d) =
+
+
+prop_mat2_inv :: Mat2x2 -> Bool
+prop_mat2_inv m@(Mat2x2 a b c d) =
+    let det  = determinant m
+        mInv = inverse m
+        mult = multiply m (fromJust mInv)
+        mVec = toVector mult
+        idVec= toVector (identity :: Mat2x2)
+
+    in if det == 0
+       then isNothing mInv
+       else and $ zipWith (\e1 e2 -> e2 - e1 < 0.0001) mVec idVec 
