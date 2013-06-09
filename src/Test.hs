@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
 module Main where
 
 import Test.Framework ( Test, defaultMain, testGroup )
@@ -33,12 +34,14 @@ vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
                   ]
 
 matrixTestGroup :: [Test]
-matrixTestGroup = [ testProperty "2x2 transpose"   prop_mat2_transpose
-                  , testProperty "2x2 minorAt"     prop_mat2_minorAt
---                  , testProperty "2x2 determinant" prop_mat2_det
---                  , testProperty "2x2 inverse"     prop_mat2_inv
+matrixTestGroup = [ testProperty "2x2 minorAt"     prop_mat2_minorAt
+                  , testProperty "2x2 transpose"   prop_mat2_transpose
+                  , testProperty "2x2 determinant" prop_mat2_det
+                  , testProperty "2x2 inverse"     $ prop_matrix_inv (identity :: Mat2x2)
+                  , testProperty "3x3 minorAt"     prop_mat3_minorAt
+                  , testProperty "3x3 transpose"   prop_mat3_transpose
+                  , testProperty "3x3 inverse"     $ prop_matrix_inv (identity :: Mat3x3)
                   ]
-
 {- Vector -}
 prop_magnitude :: Vector -> Bool
 prop_magnitude vec = magnitude vec == sqrt (sum $ map (**2) vec)
@@ -91,36 +94,49 @@ prop_vec4at at v = let vec4 = vec4At at v
         _         -> False
 
 {- Matrix -}
+prop_matrix_inv :: (Matrix a, Vectorize a) => a -> a -> Bool
+prop_matrix_inv ident m =
+    let det  = determinant m
+        mInv = inverse m
+        mult = multiply m (fromJust mInv)
+        mVec = toVector mult
+        idVec= toVector ident
+    in if det == 0
+       then isNothing mInv
+       else and $ zipWith (\e1 e2 -> e2 - e1 < 0.0001) mVec idVec
 
 instance Arbitrary Mat2x2 where
-    arbitrary = do
-        a <- arbitrary
-        b <- arbitrary
-        c <- arbitrary
-        d <- arbitrary
-        return $ Mat2x2 a b c d
-    shrink = shrink
+    arbitrary = genMat2x2
+
+genMat2x2 :: Gen Mat2x2
+genMat2x2 = do
+    a <- arbitrary
+    b <- arbitrary
+    c <- arbitrary
+    d <- arbitrary
+    return $ Mat2x2 a b c d
+
 
 prop_mat2_transpose :: Mat2x2 -> Bool
 prop_mat2_transpose m@(Mat2x2 a b c d) = transpose m == Mat2x2 a c b d
 
 prop_mat2_minorAt :: Mat2x2 -> Bool
-prop_mat2_minorAt m@(Mat2x2 a b c d) = trace "quickchecking minorAt"
-    minorAt m 0 0 == d
+prop_mat2_minorAt m@(Mat2x2 a b c d) = minorAt m 0 0 == d
 
 prop_mat2_det :: Mat2x2 -> Bool
-prop_mat2_det m@(Mat2x2 a b c d) = trace "quickchecking determinant"
-    a*d - b*c == determinant m
+prop_mat2_det m@(Mat2x2 a b c d) = a*d - b*c == determinant m
 
-prop_mat2_inv :: Mat2x2 -> Bool
-prop_mat2_inv m@(Mat2x2 a b c d) =
-    let det  = trace "determinant" determinant m
-        mInv = trace "inverse" inverse m
-        mult = trace "multiply" multiply m (fromJust mInv)
-        mVec = trace "toVector mult" toVector mult
-        idVec= trace "toVector id" toVector (identity :: Mat2x2)
+instance Arbitrary Mat3x3 where
+    arbitrary = genMat3x3
 
-    in if det == 0
-       then trace "checking is nothing" isNothing mInv
-       else trace "checking is within range of identity" and $ zipWith (\e1 e2 -> e2 - e1 < 0.0001) mVec idVec
+genMat3x3 :: Gen Mat3x3
+genMat3x3 = do
+    [a,b,c,d,e,f,g,h,i] <- mapM (const arbitrary) [0..8]
+    return $ Mat3x3 a b c d e f g h i
+
+prop_mat3_transpose :: Mat3x3 -> Bool
+prop_mat3_transpose m@(Mat3x3 a b c d e f g h i) = transpose m == Mat3x3 a d g b e h c f i
+
+prop_mat3_minorAt :: Mat3x3 -> Bool
+prop_mat3_minorAt m@(Mat3x3 _ _ _ _ e f _ h i) = minorAt m 0 0 == (determinant $ Mat2x2 e f h i)
 

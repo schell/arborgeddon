@@ -21,8 +21,6 @@ class Point a => Line a where
     intersection :: (a, a) -> (a, a) -> a
 
 class Vectorize a => Matrix a where
-    -- | The zero matrix.
-    zero        :: a
     -- | The identity matrix.
     identity    :: a
     -- | The number of columns in the matrix.
@@ -36,6 +34,18 @@ class Vectorize a => Matrix a where
     -- | The minor for an element of `a` at the given row and column.
     minorAt     :: a -> Int -> Int -> Float
 
+    -- | The matrix created by deleting column x and row y of the given matrix.
+    deleteColRow :: a -> Int -> Int -> Vector
+    deleteColRow m x y = let nRws = numRows m
+                             nCls = numColumns m
+                             rNdxs = [ row + x      | row <- [0,nCls..nCls*(nCls-1)] ]
+                             cNdxs = [ nRws*y + col | col <- [0..nRws-1] ]
+                             ndxs = rNdxs ++ cNdxs
+                             (_, vec) = foldl filtNdx (0,[]) $ toVector m
+                             filtNdx (i, acc) el = if i `elem` ndxs
+                                                   then (i+1, acc)
+                                                   else (i+1, acc++[el])
+                         in vec
     -- | The transpose of the matrix.
     transpose   :: a -> a
     transpose = fromJust . fromVector . concat . toColumns
