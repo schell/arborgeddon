@@ -4,9 +4,9 @@ module Main where
 import qualified Graphics.UI.GLFW   as GLFW
 import Graphics.Rendering.OpenGL
 
-import Arbor.Graphics.Shaders
-import Arbor.Graphics.Util
-import Arbor.Graphics.Vbo
+import Graphics.Shaders
+import Graphics.Util
+import Graphics.Vbo
 
 import Control.Concurrent.MVar
 

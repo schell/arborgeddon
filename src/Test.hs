@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Main where
 
 import Test.Framework ( Test, defaultMain, testGroup )
@@ -8,10 +8,9 @@ import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 import Debug.Trace
 
-import Arbor.Data.Vector
-import Arbor.Data.Matrix
-import Arbor.Data.Types
+import Geometry
 
+import Prelude hiding ( subtract )
 
 main :: IO ()
 main = defaultMain tests
@@ -32,16 +31,6 @@ vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
                   , testProperty "vec3At"      prop_vec3at
                   , testProperty "vec4At"      prop_vec4at
                   ]
-
-matrixTestGroup :: [Test]
-matrixTestGroup = [ testProperty "2x2 minorAt"     prop_mat2_minorAt
-                  , testProperty "2x2 transpose"   prop_mat2_transpose
-                  , testProperty "2x2 determinant" prop_mat2_det
-                  , testProperty "2x2 inverse"     $ prop_matrix_inv (identity :: Mat2x2)
-                  , testProperty "3x3 minorAt"     prop_mat3_minorAt
-                  , testProperty "3x3 transpose"   prop_mat3_transpose
-                  , testProperty "3x3 inverse"     $ prop_matrix_inv (identity :: Mat3x3)
-                  ]
 {- Vector -}
 prop_magnitude :: Vector -> Bool
 prop_magnitude vec = magnitude vec == sqrt (sum $ map (**2) vec)
@@ -59,7 +48,7 @@ prop_add :: Vector -> Vector -> Bool
 prop_add vec1 vec2 = and $ zipWith3 (\a b apb -> a + b == apb) vec1 vec2 $ vec1 `add` vec2
 
 prop_subtract :: Vector -> Vector -> Bool
-prop_subtract v1 v2 = and $ zipWith3 (\a b amb -> a - b == amb) v1 v2 $ v1 `Arbor.Data.Vector.subtract` v2
+prop_subtract v1 v2 = and $ zipWith3 (\a b amb -> a - b == amb) v1 v2 $ v1 `subtract` v2
 
 prop_vecnat :: Int -> Int -> Vector -> Bool
 prop_vecnat n at v = let vecn = vecNAt abn aba v
@@ -94,49 +83,48 @@ prop_vec4at at v = let vec4 = vec4At at v
         _         -> False
 
 {- Matrix -}
-prop_matrix_inv :: (Matrix a, Vectorize a) => a -> a -> Bool
-prop_matrix_inv ident m =
-    let det  = determinant m
-        mInv = inverse m
-        mult = multiply m (fromJust mInv)
-        mVec = toVector mult
-        idVec= toVector ident
+
+matrixTestGroup :: [Test]
+matrixTestGroup = [ testProperty "transpose"    prop_matrix_transpose
+                  , testProperty "deleteColRow" prop_matrix_del
+                  , testProperty "minorAt"     prop_matrix_minorAt
+                  , testProperty "determinant of identity" prop_matrix_det_id
+                  , testProperty "inverse"     prop_matrix_inv
+                  ]
+
+data TestMatrix = TestMatrix Matrix deriving (Show, Eq)
+
+instance Arbitrary TestMatrix where
+    arbitrary = do
+        r <- choose (2, 4)
+        v <- vector $ r*r
+        return $ TestMatrix $ groupByRowsOf r v
+
+
+prop_matrix_transpose :: TestMatrix -> Bool
+prop_matrix_transpose (TestMatrix m) = transpose m == toColumns m
+
+prop_matrix_del :: TestMatrix -> Bool
+prop_matrix_del (TestMatrix m) = let del = deleteColRow m 0 0
+                                 in numColumns del == numColumns m -1 &&
+                                        numRows del == numRows m -1
+
+prop_matrix_minorAt :: TestMatrix -> Bool
+prop_matrix_minorAt (TestMatrix m) = let minor = minorAt m 0 0
+                                         in minor >= 0.0 || minor <= 0
+
+
+
+prop_matrix_inv :: TestMatrix -> Bool
+prop_matrix_inv (TestMatrix m) =
+    let det     = determinant m
+        mInv    = inverse m
+        mult    = multiply m (fromJust mInv)
+        detMult = determinant mult
+        range   = 1.0 - detMult
     in if det == 0
        then isNothing mInv
-       else and $ zipWith (\e1 e2 -> e2 - e1 < 0.0001) mVec idVec
+       else abs range <= 0.001
 
-instance Arbitrary Mat2x2 where
-    arbitrary = genMat2x2
-
-genMat2x2 :: Gen Mat2x2
-genMat2x2 = do
-    a <- arbitrary
-    b <- arbitrary
-    c <- arbitrary
-    d <- arbitrary
-    return $ Mat2x2 a b c d
-
-
-prop_mat2_transpose :: Mat2x2 -> Bool
-prop_mat2_transpose m@(Mat2x2 a b c d) = transpose m == Mat2x2 a c b d
-
-prop_mat2_minorAt :: Mat2x2 -> Bool
-prop_mat2_minorAt m@(Mat2x2 a b c d) = minorAt m 0 0 == d
-
-prop_mat2_det :: Mat2x2 -> Bool
-prop_mat2_det m@(Mat2x2 a b c d) = a*d - b*c == determinant m
-
-instance Arbitrary Mat3x3 where
-    arbitrary = genMat3x3
-
-genMat3x3 :: Gen Mat3x3
-genMat3x3 = do
-    [a,b,c,d,e,f,g,h,i] <- mapM (const arbitrary) [0..8]
-    return $ Mat3x3 a b c d e f g h i
-
-prop_mat3_transpose :: Mat3x3 -> Bool
-prop_mat3_transpose m@(Mat3x3 a b c d e f g h i) = transpose m == Mat3x3 a d g b e h c f i
-
-prop_mat3_minorAt :: Mat3x3 -> Bool
-prop_mat3_minorAt m@(Mat3x3 _ _ _ _ e f _ h i) = minorAt m 0 0 == (determinant $ Mat2x2 e f h i)
-
+prop_matrix_det_id :: TestMatrix -> Bool
+prop_matrix_det_id (TestMatrix m) = 1.0 == determinant (identity m)

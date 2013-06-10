@@ -1,4 +1,7 @@
-module Arbor.Data.Vector (
+module Geometry.Vector (
+    Vectorize,
+    toVector,
+    fromVector,
     Vector,
     magnitude,
     normalize,
@@ -13,8 +16,18 @@ module Arbor.Data.Vector (
 
 import Prelude hiding ( subtract )
 
-import Arbor.Data.Types
+{- Vector Types -}
+type Vector = [Float]
 
+type Vec2 = (Float, Float)
+type Vec3 = (Float, Float, Float)
+type Vec4 = (Float, Float, Float, Float)
+
+class Vectorize a where
+    toVector   :: a -> Vector
+    fromVector :: Vector -> Maybe a
+
+{- Vector functions -}
 -- | Computes the magnitude.
 magnitude :: Vector -> Float
 magnitude = sqrt . sum . map (**2)
