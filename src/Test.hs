@@ -16,7 +16,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: [Test]
-tests = [ testGroup "Vector Group" vectorTestGroup
+tests = [ testGroup "[Float] Group" vectorTestGroup
         , testGroup "Matrix Group" matrixTestGroup
         ]
 
@@ -31,26 +31,26 @@ vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
                   , testProperty "vec3At"      prop_vec3at
                   , testProperty "vec4At"      prop_vec4at
                   ]
-{- Vector -}
-prop_magnitude :: Vector -> Bool
+{- [Float] -}
+prop_magnitude :: [Float] -> Bool
 prop_magnitude vec = magnitude vec == sqrt (sum $ map (**2) vec)
 
-prop_normalize :: Vector -> Bool
+prop_normalize :: [Float] -> Bool
 prop_normalize vec =
     if null vec
     then magnitude vec == 0.0 -- The zero vector.
     else (\n -> abs (n-1.0) < 0.0001) $ magnitude $ normalize vec
 
-prop_unit :: Vector -> Bool
+prop_unit :: [Float] -> Bool
 prop_unit = prop_normalize
 
-prop_add :: Vector -> Vector -> Bool
+prop_add :: [Float] -> [Float] -> Bool
 prop_add vec1 vec2 = and $ zipWith3 (\a b apb -> a + b == apb) vec1 vec2 $ vec1 `add` vec2
 
-prop_subtract :: Vector -> Vector -> Bool
+prop_subtract :: [Float] -> [Float] -> Bool
 prop_subtract v1 v2 = and $ zipWith3 (\a b amb -> a - b == amb) v1 v2 $ v1 `subtract` v2
 
-prop_vecnat :: Int -> Int -> Vector -> Bool
+prop_vecnat :: Int -> Int -> [Float] -> Bool
 prop_vecnat n at v = let vecn = vecNAt abn aba v
                          abn  = abs n
                          aba  = abs at
@@ -60,13 +60,13 @@ prop_vecnat n at v = let vecn = vecNAt abn aba v
                                  head vecn == v !! (aba*abn) &&
                                      last vecn == v !! (aba*abn+(abn-1))
 
-prop_vec2at :: Int -> Vector -> Bool
+prop_vec2at :: Int -> [Float] -> Bool
 prop_vec2at a v = let at = abs a in
     case vec2At at v of
         (0, 0) -> True
         (x, y) -> v !! (2*at) == x && v !! (2*at+1) == y
 
-prop_vec3at :: Int -> Vector -> Bool
+prop_vec3at :: Int -> [Float] -> Bool
 prop_vec3at at v = let vec3 = vec3At at v
                        vecn = vecNAt 3 at v in
     case vecn of
@@ -74,7 +74,7 @@ prop_vec3at at v = let vec3 = vec3At at v
         (x:y:z:[])-> vec3 == (x,y,z)
         _         -> False
 
-prop_vec4at :: Int -> Vector -> Bool
+prop_vec4at :: Int -> [Float] -> Bool
 prop_vec4at at v = let vec4 = vec4At at v
                        vecn = vecNAt 4 at v in
     case vecn of
@@ -92,7 +92,7 @@ matrixTestGroup = [ testProperty "transpose"    prop_matrix_transpose
                   , testProperty "inverse"     prop_matrix_inv
                   ]
 
-data TestMatrix = TestMatrix Matrix deriving (Show, Eq)
+data TestMatrix = TestMatrix (Matrix Double) deriving (Show, Eq)
 
 instance Arbitrary TestMatrix where
     arbitrary = do

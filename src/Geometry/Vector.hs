@@ -1,8 +1,8 @@
 module Geometry.Vector (
-    Vectorize,
-    toVector,
-    fromVector,
     Vector,
+    Vec2,
+    Vec3,
+    Vec4,
     magnitude,
     normalize,
     unitize,
@@ -17,40 +17,37 @@ module Geometry.Vector (
 import Prelude hiding ( subtract )
 
 {- Vector Types -}
-type Vector = [Float]
+type Vector a = [a]
 
 type Vec2 = (Float, Float)
 type Vec3 = (Float, Float, Float)
 type Vec4 = (Float, Float, Float, Float)
 
-class Vectorize a where
-    toVector   :: a -> Vector
-    fromVector :: Vector -> Maybe a
-
 {- Vector functions -}
 -- | Computes the magnitude.
-magnitude :: Vector -> Float
+magnitude :: Floating a => Vector a -> a
 magnitude = sqrt . sum . map (**2)
 
 -- | Computes the unit vector.
-normalize :: Vector -> Vector
+normalize :: Floating a => [a] -> [a]
 normalize vec = map (/mag) vec
     where mag = magnitude vec
 
 -- | Computes the unit vector.
-unitize :: Vector -> Vector
+unitize :: Floating a => [a] -> [a]
 unitize = normalize
 
 -- | Adds two vectors.
-add :: Vector -> Vector -> Vector
+add :: Floating a => [a] -> [a] -> [a]
 add = zipWith (+)
 
 -- | Subtracts two vectors.
-subtract :: Vector -> Vector -> Vector
+
+subtract :: Num a => [a] -> [a] -> [a]
 subtract = zipWith (-)
 
 -- | Returns the a'th vector of n components in the given vector.
-vecNAt :: Int -> Int -> Vector -> Vector
+vecNAt :: Int -> Int -> [a] -> [a]
 vecNAt n a v  = let abn = abs n
                     aba = abs a
                     len = length v
@@ -59,17 +56,17 @@ vecNAt n a v  = let abn = abs n
     then []
     else take n $ drop nxa v
 
-vec2At :: Int -> Vector -> Vec2
+vec2At :: Num t => Int -> [t] -> (t, t)
 vec2At n v = tuple $ vecNAt 2 (abs n) v
     where tuple [x,y] = (x,y)
           tuple _     = (0,0)
 
-vec3At :: Int -> Vector -> Vec3
+vec3At :: Num t => Int -> [t] -> (t, t, t)
 vec3At n v = tuple $ vecNAt 3 (abs n) v
     where tuple [x,y,z] = (x,y,z)
           tuple _       = (0,0,0)
 
-vec4At :: Int -> Vector -> Vec4
+vec4At :: Num t => Int -> [t] -> (t, t, t, t)
 vec4At n v = tuple $ vecNAt 4 (abs n) v
     where tuple [x,y,z,w] = (x,y,z,w)
           tuple _         = (0,0,0,0)

@@ -1,22 +1,27 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import qualified Graphics.UI.GLFW   as GLFW
-import Graphics.Rendering.OpenGL
-
 import Graphics.Shaders
 import Graphics.Util
 import Graphics.Vbo
+import Geometry
 
 import Control.Concurrent.MVar
+import Graphics.Rendering.OpenGL.Raw ( glGetUniformLocation )
 
-import Control.Monad         ( void, when, unless, forever )
-import System.Exit           ( exitSuccess )
-import System.Directory      ( getCurrentDirectory )
-import System.FilePath       ( (</>) )
-import Foreign.Marshal.Array ( withArray )
-import Foreign.Ptr           ( nullPtr )
-import Foreign.Storable      ( sizeOf )
+import Control.Monad                 ( void, unless, forever )
+import System.Exit                   ( exitSuccess )
+import System.Directory              ( getCurrentDirectory )
+import System.FilePath               ( (</>) )
+import Foreign.Marshal.Array         ( withArray )
+import Foreign.C.String              ( withCString )
+import Foreign.Ptr                   ( nullPtr )
+import Foreign.Storable              ( sizeOf )
+import Graphics.Rendering.OpenGL.Raw ( glUniformMatrix4fv )
+
+import Graphics.Rendering.OpenGL hiding ( Matrix )
+import Graphics.Rendering.OpenGL.GL.Shaders.Program
+import qualified Graphics.UI.GLFW   as GLFW
 
 data AppState = App { appWindowSize :: (Int, Int) }
 
@@ -58,6 +63,8 @@ main = do
     attachedShaders p $= ([v],[f])
     attribLocation p "position" $= AttribLocation 0
     attribLocation p "color"    $= AttribLocation 1
+    printError
+
     linkProgram p
     linked <- get $ linkStatus p
     unless linked $ do
@@ -67,6 +74,29 @@ main = do
     -- Use this program.
     currentProgram $= Just p
     validateProgram p
+    printError
+
+    -- Get uniform locations
+    projectionLoc <- withCString "projectionMat" $ \ptr ->
+        glGetUniformLocation (programID p) ptr
+    modelviewLoc <- withCString "modelviewMat" $ \ptr ->
+        glGetUniformLocation (programID p) ptr
+    printError
+
+    activeUs <- get $ activeUniforms p
+    putStrLn $ "Active uniforms: "++show activeUs
+    putStrLn $ "Uniform locations: "++show [projectionLoc,modelviewLoc]
+
+    let projectionMat = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] :: Matrix GLfloat
+        modelviewMat  = scale3d (1/2) (1/2) 1 $ identity projectionMat
+        matrixSize    = fromIntegral $ 16 * sizeOf (undefined :: GLfloat)
+
+    putStrLn "Updating uniforms."
+    withArray (concat projectionMat) $ \ptr ->
+        glUniformMatrix4fv projectionLoc 1 1 ptr
+    withArray (concat modelviewMat) $ \ptr ->
+        glUniformMatrix4fv modelviewLoc 1 1 ptr
+    printError
 
     -- Enable the attribs.
 
@@ -83,6 +113,8 @@ main = do
         drawScene ivbo {-cbo-})
 
     forever $ drawScene ivbo
+
+
 
 displayOptions :: GLFW.DisplayOptions
 displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
