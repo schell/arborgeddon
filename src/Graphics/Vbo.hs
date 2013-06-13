@@ -18,9 +18,9 @@ import Control.Monad         ( zipWithM, void )
 --
 -- data Vbo = Vbo { vboBuffer :: BufferObject
 data InterleavedVbo = InterleavedVbo { vboLocs  :: [AttribLocation]
-                                       , vboDescs :: [VertexArrayDescriptor Int]
-                                       , vboBuff  :: BufferObject
-                                       }
+                                     , vboDescs :: [VertexArrayDescriptor Int]
+                                     , vboBuff  :: BufferObject
+                                     }
 
 createVbo :: Storable a => [a] -> IO BufferObject   -- ^ A vertex buffer object.
 createVbo vertexData = do

@@ -85,11 +85,12 @@ prop_vec4at at v = let vec4 = vec4At at v
 {- Matrix -}
 
 matrixTestGroup :: [Test]
-matrixTestGroup = [ testProperty "transpose"    prop_matrix_transpose
-                  , testProperty "deleteColRow" prop_matrix_del
-                  , testProperty "minorAt"     prop_matrix_minorAt
+matrixTestGroup = [ testProperty "transpose"               prop_matrix_transpose
+                  , testProperty "deleteColRow"            prop_matrix_del
+                  , testProperty "minorAt"                 prop_matrix_minorAt
                   , testProperty "determinant of identity" prop_matrix_det_id
-                  , testProperty "inverse"     prop_matrix_inv
+                  , testProperty "inverse"                 prop_matrix_inv
+                  , testProperty "identityN"               prop_matrix_id_n
                   ]
 
 data TestMatrix = TestMatrix (Matrix Double) deriving (Show, Eq)
@@ -128,3 +129,8 @@ prop_matrix_inv (TestMatrix m) =
 
 prop_matrix_det_id :: TestMatrix -> Bool
 prop_matrix_det_id (TestMatrix m) = 1.0 == determinant (identity m)
+
+prop_matrix_id_n :: Bool
+prop_matrix_id_n = let i = identityN 4 in
+    (4 == numRows i) &&
+        4 == numColumns i

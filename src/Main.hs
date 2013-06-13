@@ -1,40 +1,101 @@
-{-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import Graphics.Shaders
-import Graphics.Util
-import Graphics.Vbo
+import Graphics
 import Geometry
+import Game
+import Game.Clock
 
-import Control.Concurrent.MVar
-import Graphics.Rendering.OpenGL.Raw ( glGetUniformLocation )
+import Foreign.Ptr
+import Data.Acid
+import System.CPUTime
 
-import Control.Monad                 ( void, unless, forever )
+import Data.Acid.Local               ( createCheckpointAndClose )
+import Data.Acid.Advanced            ( query', update' )
+import Data.Maybe                    ( fromMaybe )
+import Control.Exception             ( bracket )
+import Control.Monad.IO.Class        ( liftIO )
+import Control.Monad                 ( void, unless, forever, zipWithM_ )
+import Control.Monad.Trans.Class     ( lift )
 import System.Exit                   ( exitSuccess )
 import System.Directory              ( getCurrentDirectory )
 import System.FilePath               ( (</>) )
 import Foreign.Marshal.Array         ( withArray )
 import Foreign.C.String              ( withCString )
-import Foreign.Ptr                   ( nullPtr )
-import Foreign.Storable              ( sizeOf )
-import Graphics.Rendering.OpenGL.Raw ( glUniformMatrix4fv )
+import Graphics.Rendering.OpenGL.Raw ( glGetUniformLocation, glUniformMatrix4fv )
 
 import Graphics.Rendering.OpenGL hiding ( Matrix )
 import Graphics.Rendering.OpenGL.GL.Shaders.Program
 import qualified Graphics.UI.GLFW   as GLFW
 
-data AppState = App { appWindowSize :: (Int, Int) }
+type DisplayState = InterleavedVbo
 
 main :: IO ()
 main = do
     putStrLn "Starting Arborgeddon..."
+    bracket (openLocalState defaultGameState)
+            createCheckpointAndClose
+            runGame
 
-    appState <- newEmptyMVar
+runGame :: AcidState GameState -> IO ()
+runGame acid = do
+    True <- initGLFW acid
+    True <- initShaders
+
+    -- Vertex data things.
+    ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
+
+    -- Register our scene drawing function.
+    --GLFW.setWindowRefreshCallback windowRefresh
+    -- Register our resize window function.
+    GLFW.setWindowSizeCallback (\w h -> do
+        game    <- query' acid GetGameState
+        let game' = game{gsWindow = (gsWindow game){gwSize = (w, h)}}
+        _ <- update' acid $ SaveGameState game'
+        viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
+        stepGame acid ivbo)
+
+    forever $ stepGame acid ivbo
+
+
+stepGame :: AcidState GameState -> InterleavedVbo -> IO ()
+stepGame acid ivbo = do
+    game    <- query' acid GetGameState
+    newGame <- updateGameState game
+    _       <- update' acid $ SaveGameState newGame
+
+    drawScene newGame ivbo
+
+updateGameState :: GameState -> IO GameState
+updateGameState gamePrev = do
+    newTime <- getTime
+    -- Update the time steps.
+    let game = gamePrev { gsTimePrev = gsTimeNow gamePrev, gsTimeNow = newTime }
+    return $ step game
+
+
+drawScene :: GameState -> DisplayState -> IO ()
+drawScene game ivbo = do
+    -- Clear the screen and the depth buffer.
+    clear [ColorBuffer, DepthBuffer]
+    -- Update the matrix uniforms.
+    let t = gsTransform game
+    updateMatrixUniforms (identityN 4) (applyTransformation t $ identityN 4)
+    bindInterleavedVbo ivbo
+    drawArrays Triangles 0 3
+    printError
+    GLFW.swapBuffers
+
+initGLFW :: AcidState GameState -> IO Bool
+initGLFW acid = do
+    putStrLn "Initializing the OpenGL window and context."
 
     True <- GLFW.initialize
-    -- Get a 640 x 480 window.
     -- Initialize the window.
-    True <- GLFW.openWindow displayOptions
+    game <- query' acid GetGameState
+    let displayOps = displayOptions{ GLFW.displayOptions_width  = fst $ gwSize $ gsWindow game
+                                   , GLFW.displayOptions_height = snd $ gwSize $ gsWindow game
+                                   }
+    True <- GLFW.openWindow displayOps
     -- Make sure the window is gpu'able.
     True <- GLFW.windowIsHardwareAccelerated
     -- Window will show at upper left corner.
@@ -53,7 +114,10 @@ main = do
     blend     $= Enabled
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
 
-    -- Shader stuff.
+    return True
+
+initShaders :: IO Bool
+initShaders = do
     cwd <- getCurrentDirectory
     let shaderDir = cwd </> "data" </> "shaders"
     putStrLn $ "Looking for shaders in '" ++ shaderDir ++ "'"
@@ -76,6 +140,11 @@ main = do
     validateProgram p
     printError
 
+    return True
+
+updateMatrixUniforms :: Matrix GLfloat -> Matrix GLfloat -> IO ()
+updateMatrixUniforms projection modelview = do
+    p <- getCurrentProgram
     -- Get uniform locations
     projectionLoc <- withCString "projectionMat" $ \ptr ->
         glGetUniformLocation (programID p) ptr
@@ -83,37 +152,12 @@ main = do
         glGetUniformLocation (programID p) ptr
     printError
 
-    activeUs <- get $ activeUniforms p
-    putStrLn $ "Active uniforms: "++show activeUs
-    putStrLn $ "Uniform locations: "++show [projectionLoc,modelviewLoc]
-
-    let projectionMat = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]] :: Matrix GLfloat
-        modelviewMat  = scale3d (1/2) (1/2) 1 $ identity projectionMat
-        matrixSize    = fromIntegral $ 16 * sizeOf (undefined :: GLfloat)
-
-    putStrLn "Updating uniforms."
-    withArray (concat projectionMat) $ \ptr ->
+    -- Clear matrix uniforms.
+    withArray (concat projection) $ \ptr ->
         glUniformMatrix4fv projectionLoc 1 1 ptr
-    withArray (concat modelviewMat) $ \ptr ->
+    withArray (concat modelview) $ \ptr ->
         glUniformMatrix4fv modelviewLoc 1 1 ptr
     printError
-
-    -- Enable the attribs.
-
-    -- Vertex data things.
-    ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
-
-    -- Register our scene drawing function.
-    GLFW.setWindowRefreshCallback $ drawScene ivbo --cbo
-    -- Register our resize window function.
-    GLFW.setWindowSizeCallback (\w h -> do
-        viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
-        _ <- tryTakeMVar appState
-        putMVar appState App{ appWindowSize = (w, h) }
-        drawScene ivbo {-cbo-})
-
-    forever $ drawScene ivbo
-
 
 
 displayOptions :: GLFW.DisplayOptions
@@ -125,7 +169,7 @@ displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
                                             , GLFW.displayOptions_numBlueBits  = 8
                                             , GLFW.displayOptions_numAlphaBits = 8
                                             , GLFW.displayOptions_numDepthBits = 1
-                                            -- , GLFW.displayOptions_displayMode = GLFW.Fullscreen
+                                            --, GLFW.displayOptions_displayMode = GLFW.Fullscreen
                                             }
 
 vertexData :: [GLfloat]
@@ -140,20 +184,6 @@ colorData = [ 1.0, 0.0, 0.0, 1.0
             , 0.0, 0.0, 1.0, 1.0
             ]
 
--- bindVbo :: GLint -> GLuint -> BufferObject -> IO ()
--- bindVbo size loc vb = do
---     vertexAttribArray (AttribLocation loc) $= Enabled
---     bindBuffer ArrayBuffer $= Just vb
---     vertexAttribPointer (AttribLocation loc) $= (ToFloat, VertexArrayDescriptor size Float 0 nullPtr)
-
-drawScene :: InterleavedVbo -> IO ()
-drawScene ivbo = do
-    -- Clear the screen and the depth buffer.
-    clear [ColorBuffer, DepthBuffer]
-    bindInterleavedVbo ivbo
-    drawArrays Triangles 0 3
-    printError
-    GLFW.swapBuffers
 
 keyPressed :: GLFW.KeyCallback
 keyPressed GLFW.KeyEsc True = void shutdown
@@ -172,6 +202,6 @@ shutdown :: GLFW.WindowCloseCallback
 shutdown = do
     GLFW.closeWindow
     GLFW.terminate
-    exitSuccess
+    _ <- exitSuccess
     return True
 

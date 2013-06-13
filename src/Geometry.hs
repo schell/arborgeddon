@@ -1,7 +1,8 @@
 module Geometry (
-    module Geometry.Vector,
-    module Geometry.Matrix
+    module G
 ) where
 
-import Geometry.Vector
-import Geometry.Matrix
+import Geometry.Vector                  as G
+import Geometry.Matrix                  as G
+import Geometry.Transformations         as G
+import Geometry.MatrixTransformations   as G

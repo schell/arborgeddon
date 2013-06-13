@@ -9,19 +9,40 @@ import qualified Data.List as L
 
 type Matrix a = [Vector a]
 
-{- Transforming Matrices -}
-scale3d :: Num a => a -> a -> a -> Matrix a -> Matrix a
-scale3d x y z m = multiply m s
-    where s = [ [x, 0, 0, 0]
-              , [0, y, 0, 0]
-              , [0, 0, z, 0]
-              , [0, 0, 0, 1]
-              ]
+{- Special Matrices -}
+scaleMatrix3d :: Num t => t -> t -> t -> Matrix t
+scaleMatrix3d x y z = [ [x, 0, 0, 0]
+                      , [0, y, 0, 0]
+                      , [0, 0, z, 0]
+                      , [0, 0, 0, 1]
+                      ]
+
+rotationMatrix3d :: Floating t => t -> t -> t -> Matrix t
+rotationMatrix3d x y z = [ [cy*cz, -cx*sz+sx*sy*sz,  sx*sz+cx*sy*cz, 0]
+                         , [cy*sz,  cx*cz+sx*sy*sz, -sx*cz+cx*sy*sz, 0]
+                         , [  -sy,           sx*cy,           cx*cy, 0]
+                         , [    0,               0,               0, 1]
+                         ]
+    where [cx, cy, cz] = map cos [x, y, z]
+          [sx, sy, sz] = map sin [x, y, z]
+
+translationMatrix3d :: Num t => t -> t -> t -> Matrix t
+translationMatrix3d x y z = [ [1, 0, 0, x]
+                            , [0, 1, 0, y]
+                            , [0, 0, 1, z]
+                            , [0, 0, 0, 1]
+                            ]
 
 {- Basic Matrix Math -}
-fromVector :: [a] -> Maybe [[a]]
-fromVector v = let numCols = floor $ sqrt $ fromIntegral $ length v
-               in Just $ groupByRowsOf numCols v
+fromVector :: Int -> Int -> [a] -> Maybe [[a]]
+fromVector r c v = if r*c == length v
+                   then Just $ groupByRowsOf c v
+                   else Nothing
+
+-- | The identity of an NxN matrix.
+identityN :: (Num a) => Int -> Matrix a
+identityN n = groupByRowsOf n $ modList n
+    where modList l = [ if x `mod` (l+1) == 0 then 1 else 0 | x <- [0..(l*l)-1] ]
 
 -- | The identity of the given matrix.
 identity :: (Num a) => Matrix a -> Matrix a
@@ -62,8 +83,9 @@ deleteColRow m x y = let nRws = numRows m
 -- | The transpose of the matrix.
 transpose :: Matrix a -> Matrix a
 transpose = L.transpose
+
 -- | Computes the inverse of the matrix.
-inverse :: (Num a, Fractional a, Eq a, Floating a) => Matrix a -> Maybe (Matrix a)
+inverse :: (Num a, Eq a, Fractional a, Floating a) => Matrix a -> Maybe (Matrix a)
 inverse m = let det      = determinant m
                 one_det  = 1/ det
                 cofacts  = cofactors m
@@ -72,23 +94,26 @@ inverse m = let det      = determinant m
             in if det /= 0
                then Just inv
                else Nothing
+
 -- | The matrix of cofactors of the given matrix.
-cofactors :: (Num a, Fractional a, Floating a) => Matrix a -> Matrix a
-cofactors m = fromJust $ fromVector [ cofactorAt m x y | y <- [0..numRows m -1], x <- [0..numColumns m -1] ]
+cofactors :: (Num a, Floating a) => Matrix a -> Matrix a
+cofactors m = fromJust $ fromVector (numRows m) (numColumns m) [ cofactorAt m x y | y <- [0..numRows m -1], x <- [0..numColumns m -1] ]
+
 -- | Computes the multiplication of two matrices.
 multiply :: Num a => Matrix a -> Matrix a -> Matrix a
 multiply m1 m2 = let element row col = sum $ zipWith (*) row col
                      rows = toRows m1
                      cols = toColumns m2
                      vec  = [ element r c | r <- rows, c <- cols ]
-                     Just m = fromVector vec
+                     Just m = fromVector (numRows m1) (numColumns m2) vec
                  in m
 -- | The cofactor for an element of `a` at the given row and column.
-cofactorAt :: (Num a, Fractional a, Floating a) => Matrix a  -> Int -> Int -> a
+cofactorAt :: (Num a, Floating a) => Matrix a  -> Int -> Int -> a
 cofactorAt m x y = let pow = fromIntegral $ x + y + 2 -- I think zero indexed.
-                   in (-1.0)**pow * minorAt m x y
+                   in (-1)**pow * minorAt m x y
+
 -- | Computes the determinant of the matrix.
-determinant :: (Num a, Fractional a, Floating a) => Matrix a -> a
+determinant :: (Num a, Floating a) => Matrix a -> a
 determinant [[a]] = a
 determinant m  = let rowCofactors = [ cofactorAt m x 0 | x <- [0..numColumns m -1] ]
                      row = head $ toRows m

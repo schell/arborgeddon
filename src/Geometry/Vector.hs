@@ -1,18 +1,4 @@
-module Geometry.Vector (
-    Vector,
-    Vec2,
-    Vec3,
-    Vec4,
-    magnitude,
-    normalize,
-    unitize,
-    add,
-    subtract,
-    vecNAt,
-    vec2At,
-    vec3At,
-    vec4At
-) where
+module Geometry.Vector where
 
 import Prelude hiding ( subtract )
 
