@@ -1,14 +1,11 @@
 module Game.Step where
 
-import Game.State ( GameState(..) )
+import Game.State
 import Geometry
+
 import Control.Lens
+import Control.Monad.State (State, execState, get)
 
 step :: GameState -> GameState
-step game = let nTransform = ( Rotation x (y+0.001) (z+0.001)
-                             , Scale 1 1 1
-                             , Translation 0 0 0
-                             )
-                (Rotation x y z, _,_) = gsTransform game
-            in game{ gsTransform = nTransform }
+step = execState $ do
 
