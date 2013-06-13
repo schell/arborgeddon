@@ -56,7 +56,6 @@ runGame acid = do
 
     forever $ stepGame acid ivbo
 
-
 stepGame :: AcidState GameState -> InterleavedVbo -> IO ()
 stepGame acid ivbo = do
     game    <- query' acid GetGameState
@@ -71,7 +70,6 @@ updateGameState gamePrev = do
     -- Update the time steps.
     let game = gamePrev { gsTimePrev = gsTimeNow gamePrev, gsTimeNow = newTime }
     return $ step game
-
 
 drawScene :: GameState -> DisplayState -> IO ()
 drawScene game ivbo = do
@@ -183,7 +181,6 @@ colorData = [ 1.0, 0.0, 0.0, 1.0
             , 0.0, 1.0, 0.0, 1.0
             , 0.0, 0.0, 1.0, 1.0
             ]
-
 
 keyPressed :: GLFW.KeyCallback
 keyPressed GLFW.KeyEsc True = void shutdown

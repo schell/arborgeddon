@@ -42,4 +42,5 @@ executable arborgeddon
                        safecopy     >=0.8.2,
                        mtl          >=2.1.2,
                        transformers >=0.3.0.0,
-                       time         >=1.4.0.1
+                       time         >=1.4.0.1,
+                       lens         >=3.9.0.2
