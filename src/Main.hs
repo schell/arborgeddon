@@ -5,9 +5,12 @@ import Geometry
 import Game
 import Game.Clock
 
+import Data.IORef
 import Foreign.Ptr
 import Data.Acid
 import System.CPUTime
+import Control.Monad.State
+import Control.Lens hiding ( transform )
 
 import Data.Acid.Local               ( createCheckpointAndClose )
 import Data.Acid.Advanced            ( query', update' )
@@ -38,8 +41,10 @@ main = do
 
 runGame :: AcidState GameState -> IO ()
 runGame acid = do
-    True <- initGLFW acid
-    True <- initShaders
+    savedGame <- query' acid GetGameState
+    gameRef   <- newIORef savedGame
+    True      <- initGLFW acid gameRef
+    True      <- initShaders
 
     -- Vertex data things.
     ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
@@ -48,50 +53,52 @@ runGame acid = do
     --GLFW.setWindowRefreshCallback windowRefresh
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
-        game    <- query' acid GetGameState
-        let game' = game{gsWindow = (gsWindow game){gwSize = (w, h)}}
-        _ <- update' acid $ SaveGameState game'
+        gamePrev <- readIORef gameRef
+        let gameNow = execState (window.size .= (w, h)) gamePrev
+        putStrLn $ show gameNow
+        writeIORef gameRef gameNow
+
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
-        stepGame acid ivbo)
+        stepGame gameRef ivbo)
 
-    forever $ stepGame acid ivbo
+    forever $ stepGame gameRef ivbo
 
-stepGame :: AcidState GameState -> InterleavedVbo -> IO ()
-stepGame acid ivbo = do
-    game    <- query' acid GetGameState
+stepGame :: IORef GameState -> InterleavedVbo -> IO ()
+stepGame gameRef ivbo = do
+    game    <- readIORef gameRef
     newGame <- updateGameState game
-    _       <- update' acid $ SaveGameState newGame
-
     drawScene newGame ivbo
+    writeIORef gameRef newGame
 
 updateGameState :: GameState -> IO GameState
 updateGameState gamePrev = do
     newTime <- getTime
-    -- Update the time steps.
-    let game = gamePrev { gsTimePrev = gsTimeNow gamePrev, gsTimeNow = newTime }
-    return $ step game
+    return $ step newTime gamePrev
 
 drawScene :: GameState -> DisplayState -> IO ()
 drawScene game ivbo = do
     -- Clear the screen and the depth buffer.
     clear [ColorBuffer, DepthBuffer]
     -- Update the matrix uniforms.
-    let t = gsTransform game
-    updateMatrixUniforms (identityN 4) (applyTransformation t $ identityN 4)
+    let t  = game^.transform
+        mv = applyTransformation t $ identityN 4
+        p  = identityN 4
+    updateMatrixUniforms p mv
     bindInterleavedVbo ivbo
     drawArrays Triangles 0 3
     printError
     GLFW.swapBuffers
 
-initGLFW :: AcidState GameState -> IO Bool
-initGLFW acid = do
+initGLFW :: AcidState GameState -> IORef GameState -> IO Bool
+initGLFW acid gameRef = do
     putStrLn "Initializing the OpenGL window and context."
 
     True <- GLFW.initialize
+    game <- readIORef gameRef
+    putStrLn $ show (game^.window.size)
     -- Initialize the window.
-    game <- query' acid GetGameState
-    let displayOps = displayOptions{ GLFW.displayOptions_width  = fst $ gwSize $ gsWindow game
-                                   , GLFW.displayOptions_height = snd $ gwSize $ gsWindow game
+    let displayOps = displayOptions{ GLFW.displayOptions_width  = game^.window.size._1
+                                   , GLFW.displayOptions_height = game^.window.size._2
                                    }
     True <- GLFW.openWindow displayOps
     -- Make sure the window is gpu'able.
@@ -100,15 +107,24 @@ initGLFW acid = do
     GLFW.setWindowPosition 0 0
     -- Set the window title.
     GLFW.setWindowTitle "Arborgeddon"
+
+    let shutdown = do
+        GLFW.closeWindow
+        GLFW.terminate
+        game <- readIORef gameRef
+        _    <- update' acid $ SaveGameState game
+        _    <- exitSuccess
+        putStrLn $ show game
+        return True
+
     -- Register our keyboard input function.
-    GLFW.setKeyCallback keyPressed
+    GLFW.setKeyCallback $ keyPressed shutdown
     -- Register our mouse position input function.
     GLFW.setMousePositionCallback mouseMoved
     -- Register our mouse button input function.
     GLFW.setMouseButtonCallback mouseButtonChanged
     -- Register our window close function.
     GLFW.setWindowCloseCallback shutdown
-
     blend     $= Enabled
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
 
@@ -127,10 +143,11 @@ initShaders = do
     attribLocation p "color"    $= AttribLocation 1
     printError
 
+    let glGet = Graphics.Rendering.OpenGL.get
     linkProgram p
-    linked <- get $ linkStatus p
+    linked <- glGet $ linkStatus p
     unless linked $ do
-        programLog <- get $ programInfoLog p
+        programLog <- glGet $ programInfoLog p
         putStrLn programLog
 
     -- Use this program.
@@ -182,9 +199,10 @@ colorData = [ 1.0, 0.0, 0.0, 1.0
             , 0.0, 0.0, 1.0, 1.0
             ]
 
-keyPressed :: GLFW.KeyCallback
-keyPressed GLFW.KeyEsc True = void shutdown
-keyPressed a b = putStrLn $ isPressedString a b
+keyPressed :: IO Bool -> GLFW.KeyCallback
+keyPressed shutdown = callback
+    where callback GLFW.KeyEsc True = void shutdown
+          callback a b = putStrLn $ isPressedString a b
 
 mouseButtonChanged :: GLFW.MouseButtonCallback
 mouseButtonChanged a b = putStrLn $ isPressedString a b
@@ -194,11 +212,4 @@ mouseMoved x y = putStrLn $ show x ++ ", " ++ show y
 
 isPressedString :: (Show a) => a -> Bool -> String
 isPressedString button pressed = show button ++ " is " ++ (if pressed then "pressed" else "not pressed") ++ "."
-
-shutdown :: GLFW.WindowCloseCallback
-shutdown = do
-    GLFW.closeWindow
-    GLFW.terminate
-    _ <- exitSuccess
-    return True
 

@@ -4,8 +4,14 @@ import Game.State
 import Geometry
 
 import Control.Lens
-import Control.Monad.State (State, execState, get)
+import Control.Monad.State
 
-step :: GameState -> GameState
-step = execState $ do
+step :: Double -> GameState -> GameState
+step time = execState $ do
+    t <- use timeNow
+    (Rotation x y z) <- use rotation
+
+    timePrev .= t
+    timeNow  .= time
+    rotation .= Rotation x (y+0.001) z
 
