@@ -53,13 +53,10 @@ runGame acid = do
     --GLFW.setWindowRefreshCallback windowRefresh
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
-        gamePrev <- readIORef gameRef
-        let gameNow = execState (window.size .= (w, h)) gamePrev
-        putStrLn $ show gameNow
-        writeIORef gameRef gameNow
-
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
+        modifyIORef gameRef $ execState (window.size .= (w, h))
         stepGame gameRef ivbo)
+
 
     forever $ stepGame gameRef ivbo
 
@@ -67,8 +64,8 @@ stepGame :: IORef GameState -> InterleavedVbo -> IO ()
 stepGame gameRef ivbo = do
     game    <- readIORef gameRef
     newGame <- updateGameState game
-    drawScene newGame ivbo
     writeIORef gameRef newGame
+    drawScene newGame ivbo
 
 updateGameState :: GameState -> IO GameState
 updateGameState gamePrev = do
@@ -95,7 +92,6 @@ initGLFW acid gameRef = do
 
     True <- GLFW.initialize
     game <- readIORef gameRef
-    putStrLn $ show (game^.window.size)
     -- Initialize the window.
     let displayOps = displayOptions{ GLFW.displayOptions_width  = game^.window.size._1
                                    , GLFW.displayOptions_height = game^.window.size._2
@@ -208,7 +204,7 @@ mouseButtonChanged :: GLFW.MouseButtonCallback
 mouseButtonChanged a b = putStrLn $ isPressedString a b
 
 mouseMoved :: GLFW.MousePositionCallback
-mouseMoved x y = putStrLn $ show x ++ ", " ++ show y
+mouseMoved x y = return ()--putStrLn $ show x ++ ", " ++ show y
 
 isPressedString :: (Show a) => a -> Bool -> String
 isPressedString button pressed = show button ++ " is " ++ (if pressed then "pressed" else "not pressed") ++ "."

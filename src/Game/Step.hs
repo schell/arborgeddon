@@ -13,5 +13,5 @@ step time = execState $ do
 
     timePrev .= t
     timeNow  .= time
-    rotation .= Rotation x (y+0.001) z
+    rotation .= Rotation x (y+0.005) (z+0.001)
 
