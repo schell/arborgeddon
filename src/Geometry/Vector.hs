@@ -1,13 +1,7 @@
 module Geometry.Vector where
 
+import Geometry.Types
 import Prelude hiding ( subtract )
-
-{- Vector Types -}
-type Vector a = [a]
-
-type Vec2 = (Float, Float)
-type Vec3 = (Float, Float, Float)
-type Vec4 = (Float, Float, Float, Float)
 
 {- Vector functions -}
 -- | Computes the magnitude.

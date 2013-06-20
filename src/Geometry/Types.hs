@@ -1,9 +1,20 @@
-module Geometry.Transformations where
+module Geometry.Types where
 
-import Data.Monoid
 import Data.SafeCopy
+import Data.Monoid
 import Control.Applicative
 
+{- The Matrix -}
+type Matrix a = [Vector a]
+
+{- Vector Types -}
+type Vector a = [a]
+
+type Vec2 = (Float, Float)
+type Vec3 = (Float, Float, Float)
+type Vec4 = (Float, Float, Float, Float)
+
+{- Transformations -}
 type Transform3d a = (Rotation3d a, Scale3d a, Translation3d a)
 
 
@@ -35,6 +46,4 @@ instance Num a => Monoid (Scale3d a) where
 instance (SafeCopy a) => SafeCopy (Scale3d a) where
     putCopy (Scale x y z) = contain $ safePut [x,y,z]
     getCopy = contain $ (\[x,y,z] -> Scale x y z) <$> safeGet
-
-
 

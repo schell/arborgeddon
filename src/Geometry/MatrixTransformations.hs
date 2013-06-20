@@ -1,7 +1,7 @@
 module Geometry.MatrixTransformations where
 
 import Geometry.Matrix
-import Geometry.Transformations
+import Geometry.Types
 
 applyTransformation :: (Num a, RealFrac a, Floating a) => Transform3d a -> Matrix a -> Matrix a
 applyTransformation t = rotate3d rx ry rz . scale3d sx sy sz . translate3d tx ty tz

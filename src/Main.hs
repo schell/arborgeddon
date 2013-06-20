@@ -3,22 +3,15 @@ module Main where
 import Graphics
 import Geometry
 import Game
-import Game.Clock
 
 import Data.IORef
-import Foreign.Ptr
 import Data.Acid
-import System.CPUTime
 import Control.Monad.State
 import Control.Lens hiding ( transform )
 
 import Data.Acid.Local               ( createCheckpointAndClose )
 import Data.Acid.Advanced            ( query', update' )
-import Data.Maybe                    ( fromMaybe )
 import Control.Exception             ( bracket )
-import Control.Monad.IO.Class        ( liftIO )
-import Control.Monad                 ( void, unless, forever, zipWithM_ )
-import Control.Monad.Trans.Class     ( lift )
 import System.Exit                   ( exitSuccess )
 import System.Directory              ( getCurrentDirectory )
 import System.FilePath               ( (</>) )
@@ -35,42 +28,58 @@ type DisplayState = InterleavedVbo
 main :: IO ()
 main = do
     putStrLn "Starting Arborgeddon..."
-    bracket (openLocalState defaultGameState)
+    bracket (openLocalState defaultSavedGame)
             createCheckpointAndClose
             runGame
 
-runGame :: AcidState GameState -> IO ()
+runGame :: AcidState SavedGameState -> IO ()
 runGame acid = do
-    savedGame <- query' acid GetGameState
-    gameRef   <- newIORef savedGame
+    savedGame <- query' acid UnsaveGame
+    gameRef   <- newIORef $ gameFromSavedGame savedGame
     True      <- initGLFW acid gameRef
     True      <- initShaders
 
     -- Vertex data things.
     ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
 
-    -- Register our scene drawing function.
-    --GLFW.setWindowRefreshCallback windowRefresh
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
+        -- This essentially pauses the game but continues to draw the
+        -- scene.
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
-        modifyIORef gameRef $ execState (window.size .= (w, h))
-        stepGame gameRef ivbo)
+        game <- readIORef gameRef
+        drawScene game ivbo)
 
+    forever $ do
+        stepAndDrawGame gameRef ivbo
+        -- Comment this out for releases.
+        do
+            game <- readIORef gameRef
+            when (KeyButtonDown GLFW.KeyEsc `elem` game^.events) $ void $ shutdown acid gameRef
+            unless (null $ game^.events) $ print $ game^.events
+            when (all (`elem` game^.input^.keysPressed) [GLFW.KeyLeftCtrl, GLFW.CharKey 'T']) $ print game
 
-    forever $ stepGame gameRef ivbo
+stepAndDrawGame :: IORef GameState -> DisplayState -> IO ()
+stepAndDrawGame gameRef ivbo = do
+    -- Update viewport, poll and get our events.
+    (w, h)  <- GLFW.getWindowDimensions
+    viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
 
-stepGame :: IORef GameState -> InterleavedVbo -> IO ()
-stepGame gameRef ivbo = do
-    game    <- readIORef gameRef
-    newGame <- updateGameState game
+    gamePrev       <- readIORef gameRef
+    (input_,vents) <- getInputEvents $ gamePrev^.input
+    newTime        <- getTime
+
+    -- Tie into our pure code.
+    let newGame = step game
+        game    = flip execState gamePrev $ do
+            t <- use timeNow
+            timePrev .= t
+            timeNow  .= newTime
+            events   .= vents
+            input    .= input_
+
     writeIORef gameRef newGame
     drawScene newGame ivbo
-
-updateGameState :: GameState -> IO GameState
-updateGameState gamePrev = do
-    newTime <- getTime
-    return $ step newTime gamePrev
 
 drawScene :: GameState -> DisplayState -> IO ()
 drawScene game ivbo = do
@@ -86,44 +95,32 @@ drawScene game ivbo = do
     printError
     GLFW.swapBuffers
 
-initGLFW :: AcidState GameState -> IORef GameState -> IO Bool
+initGLFW :: AcidState SavedGameState -> IORef GameState -> IO Bool
 initGLFW acid gameRef = do
     putStrLn "Initializing the OpenGL window and context."
 
     True <- GLFW.initialize
-    game <- readIORef gameRef
     -- Initialize the window.
-    let displayOps = displayOptions{ GLFW.displayOptions_width  = game^.window.size._1
-                                   , GLFW.displayOptions_height = game^.window.size._2
-                                   }
-    True <- GLFW.openWindow displayOps
-    -- Make sure the window is gpu'able.
-    True <- GLFW.windowIsHardwareAccelerated
+    True <- GLFW.openWindow displayOptions
     -- Window will show at upper left corner.
     GLFW.setWindowPosition 0 0
     -- Set the window title.
     GLFW.setWindowTitle "Arborgeddon"
 
-    let shutdown = do
-        GLFW.closeWindow
-        GLFW.terminate
-        game <- readIORef gameRef
-        _    <- update' acid $ SaveGameState game
-        _    <- exitSuccess
-        putStrLn $ show game
-        return True
-
-    -- Register our keyboard input function.
-    GLFW.setKeyCallback $ keyPressed shutdown
-    -- Register our mouse position input function.
-    GLFW.setMousePositionCallback mouseMoved
-    -- Register our mouse button input function.
-    GLFW.setMouseButtonCallback mouseButtonChanged
     -- Register our window close function.
-    GLFW.setWindowCloseCallback shutdown
+    GLFW.setWindowCloseCallback $ shutdown acid gameRef
     blend     $= Enabled
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+    return True
 
+shutdown :: AcidState SavedGameState -> IORef GameState -> IO Bool
+shutdown acid gameRef = do
+    GLFW.closeWindow
+    GLFW.terminate
+    game <- readIORef gameRef
+    _    <- update' acid $ SaveGame $ savedGameFromGame game
+    _    <- exitSuccess
+    print game
     return True
 
 initShaders :: IO Bool
@@ -194,18 +191,4 @@ colorData = [ 1.0, 0.0, 0.0, 1.0
             , 0.0, 1.0, 0.0, 1.0
             , 0.0, 0.0, 1.0, 1.0
             ]
-
-keyPressed :: IO Bool -> GLFW.KeyCallback
-keyPressed shutdown = callback
-    where callback GLFW.KeyEsc True = void shutdown
-          callback a b = putStrLn $ isPressedString a b
-
-mouseButtonChanged :: GLFW.MouseButtonCallback
-mouseButtonChanged a b = putStrLn $ isPressedString a b
-
-mouseMoved :: GLFW.MousePositionCallback
-mouseMoved x y = return ()--putStrLn $ show x ++ ", " ++ show y
-
-isPressedString :: (Show a) => a -> Bool -> String
-isPressedString button pressed = show button ++ " is " ++ (if pressed then "pressed" else "not pressed") ++ "."
 

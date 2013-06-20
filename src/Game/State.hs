@@ -2,11 +2,11 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Game.State where
 
-import Geometry.Transformations
+import Game.Types
+import Geometry.Types
 
 import Data.Acid
 import Data.SafeCopy
-import Data.Typeable
 import Graphics.Rendering.OpenGL.Raw
 import Control.Applicative
 import Control.Monad.State
@@ -14,43 +14,12 @@ import Control.Monad.Reader
 import Control.Lens
 import Foreign.C.Types
 
-import Data.Monoid ( mempty )
-
-data GameState = GameState { _window     :: GameWindow
-                           , _transform  :: Transform3d GLfloat
-                           , _timeNow    :: Double
-                           , _timePrev   :: Double
-                           } deriving (Show, Eq, Typeable)
-
-data GameWindow = GameWindow { _size       :: (Int, Int)
-                             } deriving (Show, Eq, Typeable)
-
-$(deriveSafeCopy 0 'base ''GameState)
-$(deriveSafeCopy 0 'base ''GameWindow)
-
-instance SafeCopy CFloat where
-    putCopy (CFloat f) = contain $ safePut f
-    getCopy = contain $ CFloat <$> safeGet
-
-defaultGameState :: GameState
-defaultGameState = GameState defaultGameWindow (mempty :: Transform3d GLfloat) 0 0
-
-defaultGameWindow :: GameWindow
-defaultGameWindow = GameWindow (800, 600)
-
-getGameState :: Query GameState GameState
-getGameState = ask
-
-saveGameState :: GameState -> Update GameState GameState
-saveGameState gs = do
-    put gs
-    return gs
-
-$(makeAcidic ''GameState ['getGameState, 'saveGameState])
+import Data.Monoid      ( mempty )
 
 {- Lenses -}
 makeLenses ''GameState
-makeLenses ''GameWindow
+makeLenses ''InputState
+makeLenses ''SavedGameState
 
 {- Getters, Mutators -}
 rotation :: Lens' GameState (Rotation3d GLfloat)
@@ -61,3 +30,34 @@ translation = transform._3
 
 scale :: Lens' GameState (Scale3d GLfloat)
 scale = transform._2
+
+{- Sane Defaults, Saving and Unsaving -}
+$(deriveSafeCopy 0 'base ''SavedGameState)
+
+defaultInput :: InputState
+defaultInput = InputState [] (0,0) []
+
+defaultGame :: GameState
+defaultGame = GameState (mempty :: Transform3d GLfloat) 0 0 defaultInput []
+
+gameFromSavedGame :: SavedGameState -> GameState
+gameFromSavedGame sg = defaultGame{_transform=sg^.savedTransform}
+
+savedGameFromGame :: GameState -> SavedGameState
+savedGameFromGame g = SavedGameState{_savedTransform=g^.transform}
+
+defaultSavedGame :: SavedGameState
+defaultSavedGame = savedGameFromGame defaultGame
+
+unsaveGame :: Query SavedGameState SavedGameState
+unsaveGame = ask
+
+saveGame :: SavedGameState -> Update SavedGameState ()
+saveGame = put
+
+$(makeAcidic ''SavedGameState ['saveGame, 'unsaveGame])
+
+instance SafeCopy CFloat where
+    putCopy (CFloat f) = contain $ safePut f
+    getCopy = contain $ CFloat <$> safeGet
+

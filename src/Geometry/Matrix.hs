@@ -1,13 +1,11 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Geometry.Matrix where
 
-import Geometry.Vector
+import Geometry.Types
 
 import Data.Maybe       ( fromJust )
 
 import qualified Data.List as L
-
-type Matrix a = [Vector a]
 
 {- Special Matrices -}
 scaleMatrix3d :: Num t => t -> t -> t -> Matrix t
