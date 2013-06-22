@@ -1,7 +1,8 @@
 module Graphics (
-    module X
+    module G
 ) where
 
-import Graphics.Util    as X
-import Graphics.Vbo     as X
-import Graphics.Shaders as X
+import Graphics.Util       as G
+import Graphics.Vbo        as G
+import Graphics.Shaders    as G
+import Graphics.Primitives as G

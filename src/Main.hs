@@ -24,6 +24,8 @@ import Graphics.Rendering.OpenGL.GL.Shaders.Program
 import qualified Graphics.UI.GLFW   as GLFW
 
 type DisplayState = InterleavedVbo
+type Game = GameState GLfloat
+type SavedGame = SavedGameState GLfloat
 
 main :: IO ()
 main = do
@@ -32,7 +34,7 @@ main = do
             createCheckpointAndClose
             runGame
 
-runGame :: AcidState SavedGameState -> IO ()
+runGame :: AcidState SavedGame -> IO ()
 runGame acid = do
     savedGame <- query' acid UnsaveGame
     gameRef   <- newIORef $ gameFromSavedGame savedGame
@@ -40,6 +42,12 @@ runGame acid = do
     True      <- initShaders
 
     -- Vertex data things.
+    let vertexData = square :: [GLfloat]
+        colorData  = concat $ replicate 2 colorTri
+        colorTri   = [ 1.0, 0.0, 0.0, 1.0
+                     , 0.0, 1.0, 0.0, 1.0
+                     , 0.0, 0.0, 1.0, 1.0
+                     ]
     ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
 
     -- Register our resize window function.
@@ -59,7 +67,7 @@ runGame acid = do
             unless (null $ game^.events) $ print $ game^.events
             when (all (`elem` game^.input^.keysPressed) [GLFW.KeyLeftCtrl, GLFW.CharKey 'T']) $ print game
 
-stepAndDrawGame :: IORef GameState -> DisplayState -> IO ()
+stepAndDrawGame :: IORef Game -> DisplayState -> IO ()
 stepAndDrawGame gameRef ivbo = do
     -- Update viewport, poll and get our events.
     (w, h)  <- GLFW.getWindowDimensions
@@ -81,21 +89,21 @@ stepAndDrawGame gameRef ivbo = do
     writeIORef gameRef newGame
     drawScene newGame ivbo
 
-drawScene :: GameState -> DisplayState -> IO ()
+drawScene :: Game -> DisplayState -> IO ()
 drawScene game ivbo = do
     -- Clear the screen and the depth buffer.
     clear [ColorBuffer, DepthBuffer]
     -- Update the matrix uniforms.
-    let t  = game^.transform
+    let t  = game^.scene.transform
         mv = applyTransformation t $ identityN 4
         p  = identityN 4
     updateMatrixUniforms p mv
     bindInterleavedVbo ivbo
-    drawArrays Triangles 0 3
+    drawArrays Triangles 0 6
     printError
     GLFW.swapBuffers
 
-initGLFW :: AcidState SavedGameState -> IORef GameState -> IO Bool
+initGLFW :: AcidState SavedGame -> IORef Game -> IO Bool
 initGLFW acid gameRef = do
     putStrLn "Initializing the OpenGL window and context."
 
@@ -113,7 +121,7 @@ initGLFW acid gameRef = do
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     return True
 
-shutdown :: AcidState SavedGameState -> IORef GameState -> IO Bool
+shutdown :: AcidState SavedGame -> IORef Game -> IO Bool
 shutdown acid gameRef = do
     GLFW.closeWindow
     GLFW.terminate
@@ -179,16 +187,4 @@ displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
                                             , GLFW.displayOptions_numDepthBits = 1
                                             --, GLFW.displayOptions_displayMode = GLFW.Fullscreen
                                             }
-
-vertexData :: [GLfloat]
-vertexData = [  0.0,  0.9, 0.0
-             , -0.9, -0.9, 0.0
-             ,  0.9, -0.9, 0.0
-             ]
-
-colorData :: [GLfloat]
-colorData = [ 1.0, 0.0, 0.0, 1.0
-            , 0.0, 1.0, 0.0, 1.0
-            , 0.0, 0.0, 1.0, 1.0
-            ]
 

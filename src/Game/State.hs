@@ -7,7 +7,6 @@ import Geometry.Types
 
 import Data.Acid
 import Data.SafeCopy
-import Graphics.Rendering.OpenGL.Raw
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Reader
@@ -18,17 +17,18 @@ import Data.Monoid      ( mempty )
 
 {- Lenses -}
 makeLenses ''GameState
+makeLenses ''DisplayElement
 makeLenses ''InputState
 makeLenses ''SavedGameState
 
 {- Getters, Mutators -}
-rotation :: Lens' GameState (Rotation3d GLfloat)
+rotation :: Lens' (DisplayElement a) (Rotation3d a)
 rotation = transform._1
 
-translation :: Lens' GameState (Translation3d GLfloat)
+translation :: Lens' (DisplayElement a) (Translation3d a)
 translation = transform._3
 
-scale :: Lens' GameState (Scale3d GLfloat)
+scale :: Lens' (DisplayElement a) (Scale3d a)
 scale = transform._2
 
 {- Sane Defaults, Saving and Unsaving -}
@@ -37,22 +37,25 @@ $(deriveSafeCopy 0 'base ''SavedGameState)
 defaultInput :: InputState
 defaultInput = InputState [] (0,0) []
 
-defaultGame :: GameState
-defaultGame = GameState (mempty :: Transform3d GLfloat) 0 0 defaultInput []
+defaultDisplayElement :: Num a => DisplayElement a
+defaultDisplayElement = DisplayElement [] mempty (\_ -> return ())
 
-gameFromSavedGame :: SavedGameState -> GameState
-gameFromSavedGame sg = defaultGame{_transform=sg^.savedTransform}
+defaultGame :: Num a => GameState a
+defaultGame = GameState defaultDisplayElement 0 0 defaultInput []
 
-savedGameFromGame :: GameState -> SavedGameState
-savedGameFromGame g = SavedGameState{_savedTransform=g^.transform}
+gameFromSavedGame :: Num a => SavedGameState a -> GameState a
+gameFromSavedGame _ = defaultGame
 
-defaultSavedGame :: SavedGameState
+savedGameFromGame :: Num a => GameState a -> SavedGameState a
+savedGameFromGame _ = defaultSavedGame
+
+defaultSavedGame :: Num a => SavedGameState a
 defaultSavedGame = savedGameFromGame defaultGame
 
-unsaveGame :: Query SavedGameState SavedGameState
+unsaveGame :: Query (SavedGameState a) (SavedGameState a)
 unsaveGame = ask
 
-saveGame :: SavedGameState -> Update SavedGameState ()
+saveGame :: SavedGameState a -> Update (SavedGameState a) ()
 saveGame = put
 
 $(makeAcidic ''SavedGameState ['saveGame, 'unsaveGame])

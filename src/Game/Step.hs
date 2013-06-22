@@ -7,7 +7,7 @@ import Geometry
 import Control.Lens
 import Control.Monad.State
 
-step :: GameState -> GameState
+step :: (Num a, Fractional a) => GameState a -> GameState a
 step = execState $ do
-    (Rotation x y z) <- use rotation
-    rotation .= Rotation x (y+0.005) (z+0.001)
+    (Rotation x y z) <- use $ scene.rotation
+    scene.rotation .= Rotation x (y+0.005) (z+0.001)
