@@ -125,11 +125,10 @@ shutdown :: AcidState SavedGame -> IORef Game -> IO Bool
 shutdown acid gameRef = do
     GLFW.closeWindow
     GLFW.terminate
-    game <- readIORef gameRef
-    _    <- update' acid $ SaveGame $ savedGameFromGame game
-    _    <- exitSuccess
-    print game
-    return True
+    --game <- readIORef gameRef
+    --_    <- update' acid $ SaveGame $ savedGameFromGame game
+    --print game
+    exitSuccess
 
 initShaders :: IO Bool
 initShaders = do
