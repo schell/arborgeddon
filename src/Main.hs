@@ -42,15 +42,19 @@ runGame acid = do
     gameRef   <- newIORef $ gameFromSavedGame savedGame
     True      <- initGLFW acid gameRef
 
-    putStrLn "Waiting for get line..."
-    _         <- getLine
+    -- putStrLn "Waiting for get line..."
+    -- _         <- getLine
+
+    True      <- initShaders
+
     -- Declare our texture settings.
     texture Texture2D $= Enabled
+    -- Load our textures or die.
+    Just t <- loadTexture "/Users/schell/Code/arborgeddon/data/textures/test.png"
     textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
     textureWrapMode Texture2D S $= (Repeated, Repeat)
     textureWrapMode Texture2D T $= (Repeated, Repeat)
 
-    True      <- initShaders
 
     -- Vertex data things.
     let vertexData = square :: [GLfloat]
@@ -68,8 +72,6 @@ runGame acid = do
                      ]
     ivbo <- interleavedVbo [vertexData, texData] [3,2] [AttribLocation 0, AttribLocation 1]
     putStrLn $ "Got ivbo "++show ivbo
-    -- Load our textures or die.
-    Just t <- loadTexture "/Users/schell/Code/arborgeddon/data/textures/test.png"
     let rsrc = (t, ivbo)
 
     -- Register our resize window function.

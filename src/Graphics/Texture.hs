@@ -8,6 +8,7 @@ import Graphics.Rendering.OpenGL.GL
 
 loadTexture :: FilePath -> IO (Maybe TextureObject)
 loadTexture f = do
+    putStrLn $ "Loading texture "++f
     eDynImg <- readImage f
     case eDynImg of
         Left note  -> do
@@ -17,7 +18,8 @@ loadTexture f = do
         Right (ImageRGBA8 (Image w h dat)) -> do
             -- Make our texture name.
             [tex] <- genObjectNames 1
-            activeTexture  $= TextureUnit 0
+            texture Texture2D $= Enabled
+            activeTexture     $= TextureUnit 0
             textureBinding Texture2D $= Just tex
             -- Buffer our texture data.
             unsafeWith dat $ \ptr ->
