@@ -7,7 +7,8 @@ import Game
 import Data.IORef
 import Data.Acid
 import Control.Monad.State
-import Control.Lens hiding ( transform )
+import Debug.Trace
+import Graphics.Rendering.OpenGL.GL.Shaders.Program
 
 import Data.Acid.Local               ( createCheckpointAndClose )
 import Data.Acid.Advanced            ( query', update' )
@@ -15,15 +16,16 @@ import Control.Exception             ( bracket )
 import System.Exit                   ( exitSuccess )
 import System.Directory              ( getCurrentDirectory )
 import System.FilePath               ( (</>) )
+import Foreign.Ptr                   ( Ptr )
 import Foreign.Marshal.Array         ( withArray )
 import Foreign.C.String              ( withCString )
-import Graphics.Rendering.OpenGL.Raw ( glGetUniformLocation, glUniformMatrix4fv )
+import Graphics.Rendering.OpenGL.Raw ( glGetUniformLocation, glUniformMatrix4fv, glUniform1i )
 
-import Graphics.Rendering.OpenGL hiding ( Matrix )
-import Graphics.Rendering.OpenGL.GL.Shaders.Program
+import Control.Lens                 hiding ( transform )
+import Graphics.Rendering.OpenGL    hiding ( Matrix )
 import qualified Graphics.UI.GLFW   as GLFW
 
-type DisplayState = InterleavedVbo
+type DisplayState = (TextureObject, InterleavedVbo)
 type Game = GameState GLfloat
 type SavedGame = SavedGameState GLfloat
 
@@ -39,16 +41,36 @@ runGame acid = do
     savedGame <- query' acid UnsaveGame
     gameRef   <- newIORef $ gameFromSavedGame savedGame
     True      <- initGLFW acid gameRef
+
+    putStrLn "Waiting for get line..."
+    _         <- getLine
+    -- Declare our texture settings.
+    texture Texture2D $= Enabled
+    textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
+    textureWrapMode Texture2D S $= (Repeated, Repeat)
+    textureWrapMode Texture2D T $= (Repeated, Repeat)
+
     True      <- initShaders
 
     -- Vertex data things.
     let vertexData = square :: [GLfloat]
+        texData    = [ 0.0, 0.0
+                     , 0.0, 1.0
+                     , 1.0, 1.0
+                     , 1.0, 1.0
+                     , 0.0, 0.0
+                     , 1.0, 0.0
+                     ]
         colorData  = concat $ replicate 2 colorTri
         colorTri   = [ 1.0, 0.0, 0.0, 1.0
                      , 0.0, 1.0, 0.0, 1.0
                      , 0.0, 0.0, 1.0, 1.0
                      ]
-    ivbo <- interleavedVbo [vertexData, colorData] [3,4] [AttribLocation 0, AttribLocation 1]
+    ivbo <- interleavedVbo [vertexData, texData] [3,2] [AttribLocation 0, AttribLocation 1]
+    putStrLn $ "Got ivbo "++show ivbo
+    -- Load our textures or die.
+    Just t <- loadTexture "/Users/schell/Code/arborgeddon/data/textures/test.png"
+    let rsrc = (t, ivbo)
 
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
@@ -56,16 +78,16 @@ runGame acid = do
         -- scene.
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
         game <- readIORef gameRef
-        drawScene game ivbo)
+        drawScene game rsrc)
 
     forever $ do
-        stepAndDrawGame gameRef ivbo
+        stepAndDrawGame gameRef rsrc
         -- Comment this out for releases.
         do
             game <- readIORef gameRef
-            when (KeyButtonDown GLFW.KeyEsc `elem` game^.events) $ void $ shutdown acid gameRef
-            unless (null $ game^.events) $ print $ game^.events
             when (all (`elem` game^.input^.keysPressed) [GLFW.KeyLeftCtrl, GLFW.CharKey 'T']) $ print game
+            unless (null $ game^.events) $ print $ game^.events
+            when (KeyButtonDown GLFW.KeyEsc `elem` game^.events) $ void $ shutdown acid gameRef
 
 stepAndDrawGame :: IORef Game -> DisplayState -> IO ()
 stepAndDrawGame gameRef ivbo = do
@@ -90,14 +112,21 @@ stepAndDrawGame gameRef ivbo = do
     drawScene newGame ivbo
 
 drawScene :: Game -> DisplayState -> IO ()
-drawScene game ivbo = do
+drawScene game (tex, ivbo) = do
     -- Clear the screen and the depth buffer.
     clear [ColorBuffer, DepthBuffer]
     -- Update the matrix uniforms.
     let t  = game^.scene.transform
         mv = applyTransformation t $ identityN 4
         p  = identityN 4
+    -- Texture
+    texture Texture2D $= Enabled
+    activeTexture     $= TextureUnit 0
+    textureBinding Texture2D $= Just tex
+    printError
+
     updateMatrixUniforms p mv
+    -- Geometry
     bindInterleavedVbo ivbo
     drawArrays Triangles 0 6
     printError
@@ -117,12 +146,13 @@ initGLFW acid gameRef = do
 
     -- Register our window close function.
     GLFW.setWindowCloseCallback $ shutdown acid gameRef
+
     blend     $= Enabled
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     return True
 
 shutdown :: AcidState SavedGame -> IORef Game -> IO Bool
-shutdown acid gameRef = do
+shutdown acid gameRef = trace "shutting down" $ do
     GLFW.closeWindow
     GLFW.terminate
     --game <- readIORef gameRef
@@ -135,12 +165,12 @@ initShaders = do
     cwd <- getCurrentDirectory
     let shaderDir = cwd </> "data" </> "shaders"
     putStrLn $ "Looking for shaders in '" ++ shaderDir ++ "'"
-    v   <- loadShader $ shaderDir </> "color.vert" :: IO VertexShader
-    f   <- loadShader $ shaderDir </> "color.frag" :: IO FragmentShader
+    v   <- loadShader $ shaderDir </> "tex.vert" :: IO VertexShader
+    f   <- loadShader $ shaderDir </> "tex.frag" :: IO FragmentShader
     [p] <- genObjectNames 1
     attachedShaders p $= ([v],[f])
     attribLocation p "position" $= AttribLocation 0
-    attribLocation p "color"    $= AttribLocation 1
+    attribLocation p "uv"       $= AttribLocation 1
     printError
 
     let glGet = Graphics.Rendering.OpenGL.get
@@ -161,9 +191,11 @@ updateMatrixUniforms :: Matrix GLfloat -> Matrix GLfloat -> IO ()
 updateMatrixUniforms projection modelview = do
     p <- getCurrentProgram
     -- Get uniform locations
-    projectionLoc <- withCString "projectionMat" $ \ptr ->
+    projectionLoc <- withCString "projection" $ \ptr ->
         glGetUniformLocation (programID p) ptr
-    modelviewLoc <- withCString "modelviewMat" $ \ptr ->
+    modelviewLoc <- withCString "modelview" $ \ptr ->
+        glGetUniformLocation (programID p) ptr
+    samplerLoc <- withCString "sampler" $ \ptr ->
         glGetUniformLocation (programID p) ptr
     printError
 
@@ -174,6 +206,24 @@ updateMatrixUniforms projection modelview = do
         glUniformMatrix4fv modelviewLoc 1 1 ptr
     printError
 
+    -- Clear the texture sampler.
+    glUniform1i samplerLoc 0
+    printError
+
+updateUniforms :: [String]                                 -- ^ A list of uniform names.
+               -> [GLint -> Ptr GLfloat -> IO ()] -- ^ A list of update functions.
+               -> [[GLfloat]]                              -- ^ A list of uniform arrays.
+               -> IO ()
+updateUniforms names updates datas = do
+    p    <- getCurrentProgram
+    locs <- mapM (\name -> do
+        loc <- withCString name $ \ptr ->
+            glGetUniformLocation (programID p) ptr
+        printError
+        return loc) names
+    sequence_ $ zipWith3 (\upd arr loc -> do
+        withArray arr $ upd loc
+        printError) updates datas locs
 
 displayOptions :: GLFW.DisplayOptions
 displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800

@@ -3,10 +3,10 @@ attribute vec4 color;
 
 varying vec4 vColor;
 
-uniform mat4 modelviewMat;
-uniform mat4 projectionMat;
+uniform mat4 modelview;
+uniform mat4 projection;
 
 void main () {
     vColor = color;
-    gl_Position = projectionMat * modelviewMat * vec4(position, 1);
+    gl_Position = projection * modelview * vec4(position, 1);
 }
