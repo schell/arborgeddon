@@ -3,7 +3,6 @@
 module Game.State where
 
 import Game.Types
-import Geometry.Types
 
 import Data.Acid
 import Data.SafeCopy

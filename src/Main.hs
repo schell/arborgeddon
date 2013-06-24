@@ -21,23 +21,24 @@ import Graphics.Rendering.OpenGL    hiding ( Matrix )
 import qualified Graphics.UI.GLFW   as GLFW
 
 main :: IO ()
-main = do
-    putStrLn "Starting Arborgeddon..."
-    bracket (openLocalState defaultSavedGame)
-            createCheckpointAndClose
-            runGame
+main =  bracket (openLocalState defaultSavedGame)
+    createCheckpointAndClose
+    runGame
 
 runGame :: AcidState SavedGame -> IO ()
 runGame acid = do
     savedGame <- query' acid UnsaveGame
     gameRef   <- newIORef $ gameFromSavedGame savedGame
     True      <- initGLFW acid gameRef
+    -- When True this gives us a moment
+    -- to attach an OGL profiler.
+    when False $ do
+        putStrLn "Waiting for get line..."
+        _         <- getLine
+        return ()
 
-    -- putStrLn "Waiting for get line..."
-    -- _         <- getLine
-
-    True      <- initShaders
-
+    -- Finish init'ing.
+    True <- initShaders
     initializeResources gameRef
 
     -- Register our resize window function.
@@ -48,6 +49,7 @@ runGame acid = do
         game <- readIORef gameRef
         render game)
 
+    -- Render loop.
     forever $ do
         stepAndRender gameRef
         -- Comment this out for releases.
@@ -55,7 +57,6 @@ runGame acid = do
             game <- readIORef gameRef
             when (all (`elem` game^.input^.keysPressed) [GLFW.KeyLeftCtrl, GLFW.CharKey 'T']) $ print game
             unless (null $ game^.events) $ print $ game^.events
-            when (KeyButtonDown GLFW.KeyEsc `elem` game^.events) $ void $ shutdown acid gameRef
 
 initializeResources :: IORef Game -> IO ()
 initializeResources gameRef = do
