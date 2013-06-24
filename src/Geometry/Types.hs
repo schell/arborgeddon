@@ -17,7 +17,6 @@ type Vec4 = (Float, Float, Float, Float)
 {- Transformations -}
 type Transform3d a = (Rotation3d a, Scale3d a, Translation3d a)
 
-
 data Rotation3d a = Rotation a a a deriving (Show, Eq)
 
 instance Num a => Monoid (Rotation3d a) where

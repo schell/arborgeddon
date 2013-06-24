@@ -1,10 +1,13 @@
-{-# LANGUAGE DeriveDataTypeable, TypeFamilies, RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, TypeFamilies, RecordWildCards #-}
 module Game.Types where
 
 import Data.Typeable
 import Geometry.Types
+import Graphics.Vbo
+import Graphics.Rendering.OpenGL
+import Control.Lens
+import Graphics.UI.GLFW             ( Key, MouseButton )
 
-import Graphics.UI.GLFW ( Key, MouseButton )
 
 {- Game States -}
 data GameState a = GameState { _scene      :: DisplayElement a
@@ -12,11 +15,15 @@ data GameState a = GameState { _scene      :: DisplayElement a
                              , _timePrev   :: Double
                              , _input      :: InputState
                              , _events     :: [InputEvent]
+                             , _renderSrcs :: RenderSources
                              } deriving (Show, Eq, Typeable)
+
+type RenderSources = (TextureObject, InterleavedVbo)
+type Game = GameState GLfloat
+type SavedGame = SavedGameState GLfloat
 
 data DisplayElement a = DisplayElement { _children  :: [DisplayElement a]
                                        , _transform :: Transform3d a
-                                       , _render    :: Matrix a -> IO ()
                                        }
 
 instance Show a => Show (DisplayElement a) where
@@ -40,4 +47,34 @@ data InputEvent = KeyButtonDown Key
                 | MouseButtonUp MouseButton
                 | MouseMovedTo (Int, Int)
                 deriving (Show, Eq)
+
+{- Typeclass Animation -}
+class Animation a where
+    tick         :: Double -> a -> a
+    currentFrame :: a -> Int
+
+{- Sprites -}
+data Sprite2d a = Sprite2d { _spriteRenderable :: a
+                           , _frame            :: Int
+                           , _frameBoxes       :: [Rectangle]
+                           }
+
+-- | A rect at (x,y) with (width,height).
+data Rectangle = Rectangle Vec2 Vec2 deriving (Show, Eq)
+
+{- Lenses -}
+makeLenses ''GameState
+makeLenses ''DisplayElement
+makeLenses ''InputState
+makeLenses ''SavedGameState
+
+{- Getters, Mutators -}
+rotation :: Lens' (DisplayElement a) (Rotation3d a)
+rotation = transform._1
+
+translation :: Lens' (DisplayElement a) (Translation3d a)
+translation = transform._3
+
+scale :: Lens' (DisplayElement a) (Scale3d a)
+scale = transform._2
 

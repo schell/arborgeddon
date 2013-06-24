@@ -2,9 +2,10 @@ module Graphics.Texture where
 
 import Graphics.Util
 import Codec.Picture
-
-import Data.Vector.Storable                                         ( unsafeWith )
 import Graphics.Rendering.OpenGL.GL
+
+import Control.Monad                ( unless )
+import Data.Vector.Storable         ( unsafeWith )
 
 loadTexture :: FilePath -> IO (Maybe TextureObject)
 loadTexture f = do
@@ -15,13 +16,30 @@ loadTexture f = do
             putStrLn $ "Could not load texture '"++f++"'.\nNote: "++note
             return Nothing
 
-        Right (ImageRGBA8 (Image w h dat)) -> do
-            -- Make our texture name.
-            [tex] <- genObjectNames 1
-            texture Texture2D $= Enabled
-            activeTexture     $= TextureUnit 0
-            textureBinding Texture2D $= Just tex
+        Right img -> do
+            -- Get our texture object.
+            tex  <- newBoundTexUnit 0
             -- Buffer our texture data.
+            success <- bufferDataIntoBoundTexture img
+            unless success $ putStrLn $ "    ("++f++")"
+            return $ Just tex
+
+newBoundTexUnit :: Int -> IO TextureObject
+newBoundTexUnit u = do
+    [tex] <- genObjectNames 1
+    texture Texture2D $= Enabled
+    activeTexture     $= TextureUnit (fromIntegral u)
+    textureBinding Texture2D $= Just tex
+    return tex
+
+bufferDataIntoBoundTexture :: DynamicImage -> IO Bool
+bufferDataIntoBoundTexture dynImg = case dynImg of
+    (ImageRGB8 img)  -> unsafeTexImage2D RGB8 RGB img
+    (ImageRGBA8 img) -> unsafeTexImage2D RGBA8 RGBA img
+    _                -> do
+        putStrLn "Texture is not an expected format (expecting RGB8 or RGBA8)."
+        return False
+    where unsafeTexImage2D rb r (Image w h dat) = do
             unsafeWith dat $ \ptr ->
                 texImage2D
                   -- No cube map
@@ -31,16 +49,12 @@ loadTexture f = do
                   -- No mipmaps
                   0
                   -- Internal storage @ rgba8
-                  RGBA8
+                  rb
                   -- Size of the image
                   (TextureSize2D (fromIntegral w) (fromIntegral h))
                   -- No borders
                   0
                   -- Pixel data in unsigned bytes, rgba order
-                  (PixelData RGBA UnsignedByte ptr)
+                  (PixelData r UnsignedByte ptr)
             printError
-            return $ Just tex
-        _ -> do
-            putStrLn $ "Texture '"++f++"' is not an expected format (expecting RGBA8)."
-            return Nothing
-
+            return True

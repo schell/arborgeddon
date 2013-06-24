@@ -2,7 +2,7 @@ module Game.Events (
     getInputEvents
 ) where
 
-import Game.Types
+import Game.Types hiding ( input, events )
 
 import Graphics.UI.GLFW
 import Control.Monad
@@ -14,16 +14,16 @@ getInputEvents :: InputState                    -- ^ The previous input state.
 getInputEvents input = do
     (keys, buttons, position) <- getCurrentInput
     let events      = keyEvents++buttonEvents++moveEvents
-        keyEvents   = keyEventsBetween (_keysPressed input) keys
-        buttonEvents= buttonEventsBetween (_mouseButtonsPressed input) buttons
+        keyEvents   = getKeyEventsBetween (_keysPressed input) keys
+        buttonEvents= getButtonEventsBetween (_mouseButtonsPressed input) buttons
         moveEvents  = [ MouseMovedTo position | position /= _mousePosition input ]
     return (InputState keys position buttons, events)
 
-keyEventsBetween :: [Key] -> [Key] -> [InputEvent]
-keyEventsBetween = makeEventsBetween (KeyButtonDown, KeyButtonUp)
+getKeyEventsBetween :: [Key] -> [Key] -> [InputEvent]
+getKeyEventsBetween = makeEventsBetween (KeyButtonDown, KeyButtonUp)
 
-buttonEventsBetween :: [MouseButton] -> [MouseButton] -> [InputEvent]
-buttonEventsBetween = makeEventsBetween (MouseButtonDown, MouseButtonUp)
+getButtonEventsBetween :: [MouseButton] -> [MouseButton] -> [InputEvent]
+getButtonEventsBetween = makeEventsBetween (MouseButtonDown, MouseButtonUp)
 
 makeEventsBetween :: Eq a1 => (a1 -> a, a1 -> a) -> [a1] -> [a1] -> [a]
 makeEventsBetween (addC, removeC) from to = fmap addC added ++ fmap removeC removed
@@ -32,16 +32,16 @@ makeEventsBetween (addC, removeC) from to = fmap addC added ++ fmap removeC remo
 
 getCurrentInput :: IO ([Key], [MouseButton], (Int, Int))
 getCurrentInput = do
-    buttons  <- buttonsPressed
+    buttons  <- getButtonsPressed
     position <- getMousePosition
-    keys     <- keysPressed
+    keys     <- getKeysPressed
     return (keys, buttons, position)
 
-buttonsPressed :: IO [MouseButton]
-buttonsPressed = listOfPolledInputPressed mouseButtonIsPressed mouseButtonsUsed
+getButtonsPressed :: IO [MouseButton]
+getButtonsPressed = listOfPolledInputPressed mouseButtonIsPressed mouseButtonsUsed
 
-keysPressed :: IO [Key]
-keysPressed = listOfPolledInputPressed keyIsPressed keysUsed
+getKeysPressed :: IO [Key]
+getKeysPressed = listOfPolledInputPressed keyIsPressed keysUsed
 
 listOfPolledInputPressed :: Show a => (a -> IO Bool) -> [a] -> IO [a]
 listOfPolledInputPressed fPoll = foldM (\acc a -> do
