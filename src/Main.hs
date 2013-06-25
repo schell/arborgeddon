@@ -28,7 +28,9 @@ main =  bracket (openLocalState defaultSavedGame)
 runGame :: AcidState SavedGame -> IO ()
 runGame acid = do
     savedGame <- query' acid UnsaveGame
-    gameRef   <- newIORef $ gameFromSavedGame savedGame
+    time      <- getTime
+    let prevGame = flip execState (gameFromSavedGame savedGame) (timeNow .= time)
+    gameRef   <- newIORef prevGame
     True      <- initGLFW acid gameRef
     -- When True this gives us a moment
     -- to attach an OGL profiler.
@@ -94,6 +96,7 @@ stepAndRender gameRef = do
     (input_,vents) <- getInputEvents $ gamePrev^.input
     newTime        <- getTime
 
+    putStrLn $ "dt: " ++ show (newTime - gamePrev^.timeNow)
     -- Tie into our pure code.
     let newGame = step game
         game    = flip execState gamePrev $ do

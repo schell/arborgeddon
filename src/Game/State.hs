@@ -23,8 +23,11 @@ defaultInput = InputState [] (0,0) []
 defaultDisplayElement :: Num a => DisplayElement a
 defaultDisplayElement = DisplayElement [] mempty
 
+defaultSprite :: Sprite2d String
+defaultSprite = Sprite2d "defaultSprite" 1.0 0.0 0 []  
+
 defaultGame :: Num a => GameState a
-defaultGame = GameState defaultDisplayElement 0 0 defaultInput [] (undefined, undefined)
+defaultGame = GameState defaultSprite 0 0 defaultInput [] (undefined, undefined)
 
 gameFromSavedGame :: Num a => SavedGameState a -> GameState a
 gameFromSavedGame _ = defaultGame
