@@ -1,8 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable, TypeFamilies, TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable, TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Game.State where
 
+import Game.Game
 import Game.Types
+import Game.Sprites
 
 import Data.Acid
 import Data.SafeCopy
@@ -13,9 +15,8 @@ import Foreign.C.Types
 
 import Data.Monoid      ( mempty )
 
-
 {- Sane Defaults, Saving and Unsaving -}
-$(deriveSafeCopy 0 'base ''SavedGameState)
+-- $(deriveSafeCopy 0 'base ''SavedGame)
 
 defaultInput :: InputState
 defaultInput = InputState [] (0,0) []
@@ -23,28 +24,28 @@ defaultInput = InputState [] (0,0) []
 defaultDisplayElement :: Num a => DisplayElement a
 defaultDisplayElement = DisplayElement [] mempty
 
-defaultSprite :: Sprite2d String
-defaultSprite = Sprite2d "defaultSprite" 1.0 0.0 0 []  
+defaultSprite :: Sprite
+defaultSprite = Sprite2d Nothing 1.0 0.0 0 [] ""
 
-defaultGame :: Num a => GameState a
-defaultGame = GameState defaultSprite 0 0 defaultInput [] (undefined, undefined)
+defaultGame :: Game
+defaultGame = GameState (scooterSprite :: Sprite) 0 0 defaultInput [] Nothing
 
-gameFromSavedGame :: Num a => SavedGameState a -> GameState a
+gameFromSavedGame :: SavedGame -> Game
 gameFromSavedGame _ = defaultGame
 
-savedGameFromGame :: Num a => GameState a -> SavedGameState a
+savedGameFromGame :: Game -> SavedGame
 savedGameFromGame _ = defaultSavedGame
 
-defaultSavedGame :: Num a => SavedGameState a
+defaultSavedGame :: SavedGame
 defaultSavedGame = savedGameFromGame defaultGame
 
-unsaveGame :: Query (SavedGameState a) (SavedGameState a)
+unsaveGame :: Query SavedGame SavedGame
 unsaveGame = ask
 
-saveGame :: SavedGameState a -> Update (SavedGameState a) ()
+saveGame :: SavedGame -> Update SavedGame ()
 saveGame = put
 
-$(makeAcidic ''SavedGameState ['saveGame, 'unsaveGame])
+-- $(makeAcidic ''SavedGameState ['saveGame, 'unsaveGame])
 
 instance SafeCopy CFloat where
     putCopy (CFloat f) = contain $ safePut f

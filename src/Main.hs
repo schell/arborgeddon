@@ -19,17 +19,18 @@ import System.FilePath               ( (</>) )
 import Control.Lens                 hiding ( transform )
 import Graphics.Rendering.OpenGL    hiding ( Matrix )
 import qualified Graphics.UI.GLFW   as GLFW
+import qualified Data.Map           as M
 
 main :: IO ()
-main =  bracket (openLocalState defaultSavedGame)
-    createCheckpointAndClose
-    runGame
+main =  -- bracket (openLocalState defaultSavedGame)
+    -- createCheckpointAndClose
+    runGame undefined
 
 runGame :: AcidState SavedGame -> IO ()
 runGame acid = do
-    savedGame <- query' acid UnsaveGame
+    -- savedGame <- query' acid UnsaveGame
     time      <- getTime
-    let prevGame = flip execState (gameFromSavedGame savedGame) (timeNow .= time)
+    let prevGame = execState (timeNow .= time) defaultGame
     gameRef   <- newIORef prevGame
     True      <- initGLFW acid gameRef
     -- When True this gives us a moment
@@ -41,7 +42,6 @@ runGame acid = do
 
     -- Finish init'ing.
     True <- initShaders
-    initializeResources gameRef
 
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
@@ -49,7 +49,7 @@ runGame acid = do
         -- scene.
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
         game <- readIORef gameRef
-        render game)
+        void $ render game)
 
     -- Render loop.
     forever $ do
@@ -59,32 +59,6 @@ runGame acid = do
             game <- readIORef gameRef
             when (all (`elem` game^.input^.keysPressed) [GLFW.KeyLeftCtrl, GLFW.CharKey 'T']) $ print game
             unless (null $ game^.events) $ print $ game^.events
-
-initializeResources :: IORef Game -> IO ()
-initializeResources gameRef = do
-    -- Turn on texturing.
-    texture Texture2D $= Enabled
-    -- Load our textures or die.
-    Just t <- loadTexture "/Users/schell/Code/arborgeddon/data/textures/animation-test.png"
-    -- Set the texture params on our bound texture.
-    textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
-    textureWrapMode Texture2D S $= (Repeated, Clamp)
-    textureWrapMode Texture2D T $= (Repeated, Clamp)
-    -- Vertex data things.
-    let vertexData = square :: [GLfloat]
-        texData    = [ 0.0, 0.0
-                     , 0.0, 1.0
-                     , 1.0, 1.0
-                     , 1.0, 1.0
-                     , 0.0, 0.0
-                     , 1.0, 0.0
-                     ]
-    ivbo  <- interleavedVbo [vertexData, texData] [3,2] [AttribLocation 0, AttribLocation 1]
-    putStrLn $ "Got ivbo "++show ivbo
-
-    game  <- readIORef gameRef
-    let game' = flip execState game $ renderSrcs .= (t, ivbo)
-    writeIORef gameRef game'
 
 stepAndRender :: IORef Game -> IO ()
 stepAndRender gameRef = do
@@ -106,8 +80,8 @@ stepAndRender gameRef = do
             events   .= vents
             input    .= input_
 
-    writeIORef gameRef newGame
-    render newGame
+    newGame' <- render newGame
+    writeIORef gameRef newGame'
 
 initGLFW :: AcidState SavedGame -> IORef Game -> IO Bool
 initGLFW acid gameRef = do
@@ -127,15 +101,6 @@ initGLFW acid gameRef = do
     blend     $= Enabled
     blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
     return True
-
-shutdown :: AcidState SavedGame -> IORef Game -> IO Bool
-shutdown acid gameRef = trace "shutting down" $ do
-    GLFW.closeWindow
-    GLFW.terminate
-    --game <- readIORef gameRef
-    --_    <- update' acid $ SaveGame $ savedGameFromGame game
-    --print game
-    exitSuccess
 
 initShaders :: IO Bool
 initShaders = do
@@ -175,4 +140,13 @@ displayOptions = GLFW.defaultDisplayOptions { GLFW.displayOptions_width  = 800
                                             , GLFW.displayOptions_numDepthBits = 1
                                             --, GLFW.displayOptions_displayMode = GLFW.Fullscreen
                                             }
+
+shutdown :: AcidState SavedGame -> IORef Game -> IO Bool
+shutdown acid gameRef = trace "shutting down" $ do
+    GLFW.closeWindow
+    GLFW.terminate
+    --game <- readIORef gameRef
+    --_    <- update' acid $ SaveGame $ savedGameFromGame game
+    --print game
+    exitSuccess
 
