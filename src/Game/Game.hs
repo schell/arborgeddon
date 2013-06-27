@@ -27,6 +27,9 @@ type Sprite = Sprite2d Rsrc
 
 {- Game States -}
 data GameState a = GameState { _scene      :: Sprite2d a
+                             , _frameTimes :: [Double]
+                             , _avgFPS     :: Double
+                             , _windowSize :: (Int, Int)
                              , _timeNow    :: Double
                              , _timePrev   :: Double
                              , _input      :: InputState

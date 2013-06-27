@@ -50,7 +50,13 @@ runGame acid = do
         -- scene.
         viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
         game <- readIORef gameRef
-        void $ render game)
+        t    <- getTime
+        let game' = flip execState game $ do
+            concatTime t
+            windowSize .= (w,h) 
+
+        writeIORef gameRef game'
+        void $ render game')
 
     -- Render loop.
     forever $ do
@@ -67,18 +73,16 @@ stepAndRender gameRef = do
     (w, h)  <- GLFW.getWindowDimensions
     viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
 
-    gamePrev       <- readIORef gameRef
-    (input_,vents) <- getInputEvents $ gamePrev^.input
-    newTime        <- getTime
+    gamePrev         <- readIORef gameRef
+    (input',events') <- getInputEvents $ gamePrev^.input
+    newTime          <- getTime
 
     -- Tie into our pure code.
     let newGame = step game
         game    = flip execState gamePrev $ do
-            t <- use timeNow
-            timePrev .= t
-            timeNow  .= newTime
-            events   .= vents
-            input    .= input_
+            concatTime newTime
+            events .= events'
+            input  .= input'
 
     render newGame
     writeIORef gameRef newGame

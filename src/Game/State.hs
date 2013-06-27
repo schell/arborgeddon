@@ -28,7 +28,7 @@ defaultSprite :: Sprite
 defaultSprite = Sprite2d Nothing 1.0 0.0 0 [] ""
 
 defaultGame :: Game
-defaultGame = GameState (scooterSprite :: Sprite) 0 0 defaultInput [] Nothing
+defaultGame = GameState (scooterSprite :: Sprite) (replicate 100 0) 0.0 (0,0) 0 0 defaultInput [] Nothing
 
 gameFromSavedGame :: SavedGame -> Game
 gameFromSavedGame _ = defaultGame
