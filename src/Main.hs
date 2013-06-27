@@ -9,9 +9,9 @@ import Control.Monad.State
 import Debug.Trace
 import Graphics.Rendering.OpenGL.GL.Shaders.Program
 
-import Data.Acid.Local               ( createCheckpointAndClose )
-import Data.Acid.Advanced            ( query', update' )
-import Control.Exception             ( bracket )
+--import Data.Acid.Local               ( createCheckpointAndClose )
+--import Data.Acid.Advanced            ( query', update' )
+--import Control.Exception             ( bracket )
 import System.Exit                   ( exitSuccess )
 import System.Directory              ( getCurrentDirectory )
 import System.FilePath               ( (</>) )
@@ -19,7 +19,6 @@ import System.FilePath               ( (</>) )
 import Control.Lens                 hiding ( transform )
 import Graphics.Rendering.OpenGL    hiding ( Matrix )
 import qualified Graphics.UI.GLFW   as GLFW
-import qualified Data.Map           as M
 
 main :: IO ()
 main =  -- bracket (openLocalState defaultSavedGame)
@@ -41,7 +40,9 @@ runGame acid = do
         return ()
 
     -- Finish init'ing.
-    True <- initShaders
+    True      <- initShaders
+    initdGame <- initRsrcs Nothing prevGame
+    writeIORef gameRef initdGame
 
     -- Register our resize window function.
     GLFW.setWindowSizeCallback (\w h -> do
@@ -70,7 +71,6 @@ stepAndRender gameRef = do
     (input_,vents) <- getInputEvents $ gamePrev^.input
     newTime        <- getTime
 
-    putStrLn $ "dt: " ++ show (newTime - gamePrev^.timeNow)
     -- Tie into our pure code.
     let newGame = step game
         game    = flip execState gamePrev $ do
@@ -80,8 +80,8 @@ stepAndRender gameRef = do
             events   .= vents
             input    .= input_
 
-    newGame' <- render newGame
-    writeIORef gameRef newGame'
+    render newGame
+    writeIORef gameRef newGame
 
 initGLFW :: AcidState SavedGame -> IORef Game -> IO Bool
 initGLFW acid gameRef = do

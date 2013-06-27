@@ -2,7 +2,7 @@ module Game.Events (
     getInputEvents
 ) where
 
-import Game.Types hiding ( input, events )
+import Game.Types
 
 import Graphics.UI.GLFW
 import Control.Monad

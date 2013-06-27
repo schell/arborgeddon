@@ -2,6 +2,7 @@
 module Game.Types where
 
 import Geometry
+import Graphics
 
 import Control.Lens
 import Control.Monad.State
@@ -9,27 +10,41 @@ import Data.Typeable
 
 import Data.List                    ( intercalate )
 
-import Graphics.UI.GLFW as GLFW
+import Graphics.UI.GLFW     as GLFW
+import qualified Data.Map   as M
 
 import Graphics.Rendering.OpenGL hiding ( Matrix )
 
 -- | A rect at (x,y) with (width,height).
-data Rectangle = Rectangle Vec2 Vec2 deriving (Show, Eq)
+data Rectangle a = Rectangle (Vec2 a) (Vec2 a) deriving (Show, Eq)
+
+toTriangleRect :: Rectangle GLfloat -> [GLfloat]
+toTriangleRect (Rectangle (x,y) (w,h)) = concat [tl, bl, br, br, tl, tr]
+    where tl = [x,y]
+          tr = [x+w,y]
+          bl = [x,y+h]
+          br = [x+w,y+h]
+
+toTriangles :: [Rectangle GLfloat] -> [GLfloat]
+toTriangles = concatMap toTriangleRect
 
 {- Sprites -}
 data Sprite2d a = Sprite2d { _spriteRsrc :: Maybe a
                            , _spriteFPS  :: Double
                            , _spriteTick :: Double
                            , _frame      :: Int
-                           , _boxes      :: [Rectangle]
+                           , _boxes      :: [Rectangle GLfloat]
                            , _rsrcName   :: String
                            } deriving (Show, Eq)
 
 makeLenses ''Sprite2d
 
+type TextureMap = M.Map String TextureObject
 {- Rendering Typeclass -}
 class Renderable a where
-    render  :: a -> IO a
+    initRsrcs :: Maybe TextureMap -> a -> IO a
+    initRsrcs _ = return . id
+    render    :: a -> IO ()
 
 data DisplayElement a = DisplayElement { _children  :: [DisplayElement a]
                                        , _transform :: Transform3d a
@@ -62,10 +77,6 @@ makeLenses ''DisplayElement
 makeLenses ''InputState
 makeLenses ''SavedGameState
 
-
-translateRect :: Float -> Float -> Rectangle -> Rectangle
-translateRect x y (Rectangle (x',y') (w,h)) = Rectangle (x'+x, y'+y) (w,h)
-
 -- | Increments a sprite's tick.
 tickSprite :: (Show a, Eq a)
            => Double     -- ^ The change in seconds since the last call.
@@ -95,15 +106,43 @@ showSprite s = "Sprite2d{" ++ intercalate ", " [ "spriteFPS = "  ++ show (s^.spr
                                                ] ++ "}"
 
 instance Renderable (Sprite2d String) where
-    render s = do
-        putStrLn $ showSprite s
-        return s
+    initRsrcs _ = return . id
+    render      = putStrLn . showSprite
 
 instance Renderable (Sprite2d TextureObject) where
-    render s = do
-        case s^.spriteRsrc of
-             Nothing -> putStrLn $ showSprite s
-             _       -> putStrLn "Sprite has a tex object."
-        return s
+    initRsrcs (Just m) s = return $
+        case M.lookup (s^.rsrcName) m of
+            Nothing -> s
+            Just t  -> execState (spriteRsrc .= Just t) s
+    initRsrcs _ s        = return s
 
+    render s = case s^.spriteRsrc of
+                   Nothing -> putStrLn $ showSprite s
+                   _       -> putStrLn "Sprite has a tex object."
+
+
+instance Renderable (Sprite2d (TextureObject, InterleavedVbo)) where
+    initRsrcs (Just m) s = case M.lookup (s^.rsrcName) m of
+        Nothing -> return s
+        Just t  -> do
+            let comps  = [3,2]
+                attrbs = [AttribLocation 0, AttribLocation 1]
+                boxs   = s^.boxes
+                verts  = concat $ replicate (length boxs) square
+                uvs    = toTriangles boxs
+                datas  = [verts, uvs]
+            ivbo <- interleavedVbo datas comps attrbs
+            return s{_spriteRsrc = Just (t, ivbo)}
+
+    initRsrcs _ s        = return s
+
+    render s = case s^.spriteRsrc of
+                   Nothing   -> putStrLn $ showSprite s
+                   Just (t, ivbo) -> do
+                       activeTexture $= TextureUnit 0
+                       textureBinding Texture2D $= Just t
+                       printError
+                       bindInterleavedVbo ivbo
+                       let frame' = s^.frame
+                       drawArrays Triangles (fromIntegral frame'*6) 6
 

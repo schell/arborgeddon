@@ -10,9 +10,9 @@ type Matrix a = [Vector a]
 {- Vector Types -}
 type Vector a = [a]
 
-type Vec2 = (Float, Float)
-type Vec3 = (Float, Float, Float)
-type Vec4 = (Float, Float, Float, Float)
+type Vec2 a = (a, a)
+type Vec3 a = (a, a, a)
+type Vec4 a = (a, a, a, a)
 
 {- Transformations -}
 type Transform3d a = (Rotation3d a, Scale3d a, Translation3d a)
