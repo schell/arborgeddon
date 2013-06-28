@@ -4,11 +4,20 @@ module Geometry.Matrix where
 import Geometry.Types
 
 import Data.List        ( intercalate )
-import Data.Maybe       ( fromJust )
+import Data.Maybe       ( fromJust, fromMaybe )
 
 import qualified Data.List as L
 
-{- Special Matrices -}
+{- Projection Matrices -}
+orthoMatrix :: (Num t, Fractional t) => t -> t -> t -> t -> t -> t -> Matrix t
+orthoMatrix left right top bottom near far = [ [ 2/(right-left), 0, 0, -(right+left)/(right-left) ]
+                                             , [ 0, 2/(top-bottom), 0, -(top+bottom)/(top-bottom) ]
+                                             , [ 0, 0, -2/(far-near), -(far+near)/(far-near) ]
+                                             , [ 0, 0, 0, 1]
+                                             ]
+
+
+{- Affine Transformation Matrices -}
 scaleMatrix3d :: Num t => t -> t -> t -> Matrix t
 scaleMatrix3d x y z = [ [x, 0, 0, 0]
                       , [0, y, 0, 0]
@@ -107,16 +116,15 @@ multiply m1 m2 = let element row col = sum $ zipWith (*) row col
                      nCols = numColumns m2
                      vec   = take (nRows*nCols) [ element r c | r <- rows, c <- cols ]
                      mM    = fromVector nRows nCols vec
-                 in case mM of
-                        Just m  -> m
-                        Nothing -> error $ intercalate "\n" [ "Could not multiply matrices:"
-                                                            , "m1:"
-                                                            , show m1
-                                                            , "m2:"
-                                                            , show m2
-                                                            , "from vector:"
-                                                            , show vec
-                                                            ]
+                     err   = error $ intercalate "\n" [ "Could not multiply matrices:"
+                                                      , "m1:"
+                                                      , show m1
+                                                      , "m2:"
+                                                      , show m2
+                                                      , "from vector:"
+                                                      , show vec
+                                                      ]
+                 in fromMaybe err mM
 -- | The cofactor for an element of `a` at the given row and column.
 cofactorAt :: (Num a, Floating a) => Matrix a  -> Int -> Int -> a
 cofactorAt m x y = let pow = fromIntegral $ x + y + 2 -- I think zero indexed.

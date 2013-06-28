@@ -48,7 +48,6 @@ runGame acid = do
     GLFW.setWindowSizeCallback (\w h -> do
         -- This essentially pauses the game but continues to draw the
         -- scene.
-        viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
         game <- readIORef gameRef
         t    <- getTime
         let game' = flip execState game $ do
@@ -56,7 +55,7 @@ runGame acid = do
             windowSize .= (w,h)
 
         writeIORef gameRef game'
-        void $ render game')
+        render game')
 
     -- Render loop.
     forever $ do
@@ -84,8 +83,8 @@ stepAndRender gameRef = do
             events .= events'
             input  .= input'
 
-    render newGame
     writeIORef gameRef newGame
+    render newGame
 
 initGLFW :: AcidState SavedGame -> IORef Game -> IO Bool
 initGLFW acid gameRef = do

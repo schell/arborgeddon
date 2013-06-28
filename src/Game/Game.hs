@@ -39,30 +39,23 @@ data GameState a = GameState { _scene      :: Sprite2d a
 
 makeLenses ''GameState
 
-{- Getters, Mutators -}
-rotation :: Lens' (DisplayElement a) (Rotation3d a)
-rotation = transform._1
-
-translation :: Lens' (DisplayElement a) (Translation3d a)
-translation = transform._3
-
-scale :: Lens' (DisplayElement a) (Scale3d a)
-scale = transform._2
-
 instance Renderable Game where
     render game = do
-        -- Clear the screen and the depth buffer.
-        clear [ColorBuffer, DepthBuffer]
-        -- Update the matrix uniforms.
-        let (w,h) = game^.windowSize 
-            mScl  = (scaleMatrix3d (1/fromIntegral w) (1/fromIntegral h) 1) :: Matrix GLfloat
+        let (wi,hi) = game^.windowSize
+            (w,h) = (fromIntegral wi, fromIntegral hi)
             mId   = identityN 4 :: Matrix GLfloat
-            p     = mId `multiply` mScl 
+            p     = orthoMatrix 0 w 0 h 0 1
             ups   = [matUpdate, matUpdate, samUpdate]
             names = ["projection","modelview","sampler"]
             arrs  = map concat [p, mId, []]
             matUpdate loc   = glUniformMatrix4fv loc 1 1
             samUpdate loc _ = glUniform1i loc 0
+        -- Clear the screen and the depth buffer.
+        clear [ColorBuffer, DepthBuffer]
+        -- Set the viewport.
+        viewport $= (Position 0 0, Size (fromIntegral wi) (fromIntegral hi))
+        print $ game^.windowSize
+        -- Update the matrix uniforms.
         updateUniforms names ups arrs
         render $ game^.scene
         GLFW.swapBuffers
