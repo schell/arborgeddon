@@ -128,7 +128,8 @@ instance Renderable (Sprite2d (TextureObject, InterleavedVbo)) where
             let comps  = [3,2]
                 attrbs = [AttribLocation 0, AttribLocation 1]
                 boxs   = s^.boxes
-                verts  = concat $ replicate (length boxs) square
+                mScl   = scaleMatrix3d 32 32 1 :: Matrix GLfloat
+                verts  = concat $ replicate (length boxs) $ transformVector3 mScl square
                 uvs    = toTriangles boxs
                 datas  = [verts, uvs]
             ivbo <- interleavedVbo datas comps attrbs

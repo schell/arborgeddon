@@ -3,6 +3,7 @@ module Geometry.Matrix where
 
 import Geometry.Types
 
+import Data.List        ( intercalate )
 import Data.Maybe       ( fromJust )
 
 import qualified Data.List as L
@@ -33,7 +34,7 @@ translationMatrix3d x y z = [ [1, 0, 0, x]
 
 {- Basic Matrix Math -}
 fromVector :: Int -> Int -> [a] -> Maybe [[a]]
-fromVector r c v = if r*c == length v
+fromVector r c v = if length v `mod` r*c == 0
                    then Just $ groupByRowsOf c v
                    else Nothing
 
@@ -98,13 +99,24 @@ cofactors :: (Num a, Floating a) => Matrix a -> Matrix a
 cofactors m = fromJust $ fromVector (numRows m) (numColumns m) [ cofactorAt m x y | y <- [0..numRows m -1], x <- [0..numColumns m -1] ]
 
 -- | Computes the multiplication of two matrices.
-multiply :: Num a => Matrix a -> Matrix a -> Matrix a
+multiply :: (Num a, Show a) => Matrix a -> Matrix a -> Matrix a
 multiply m1 m2 = let element row col = sum $ zipWith (*) row col
-                     rows = toRows m1
-                     cols = toColumns m2
-                     vec  = [ element r c | r <- rows, c <- cols ]
-                     Just m = fromVector (numRows m1) (numColumns m2) vec
-                 in m
+                     rows  = toRows m1
+                     cols  = toColumns m2
+                     nRows = numRows m1
+                     nCols = numColumns m2
+                     vec   = take (nRows*nCols) [ element r c | r <- rows, c <- cols ]
+                     mM    = fromVector nRows nCols vec
+                 in case mM of
+                        Just m  -> m
+                        Nothing -> error $ intercalate "\n" [ "Could not multiply matrices:"
+                                                            , "m1:"
+                                                            , show m1
+                                                            , "m2:"
+                                                            , show m2
+                                                            , "from vector:"
+                                                            , show vec
+                                                            ]
 -- | The cofactor for an element of `a` at the given row and column.
 cofactorAt :: (Num a, Floating a) => Matrix a  -> Int -> Int -> a
 cofactorAt m x y = let pow = fromIntegral $ x + y + 2 -- I think zero indexed.

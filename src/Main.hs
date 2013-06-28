@@ -53,7 +53,7 @@ runGame acid = do
         t    <- getTime
         let game' = flip execState game $ do
             concatTime t
-            windowSize .= (w,h) 
+            windowSize .= (w,h)
 
         writeIORef gameRef game'
         void $ render game')

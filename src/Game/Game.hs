@@ -49,47 +49,21 @@ translation = transform._3
 scale :: Lens' (DisplayElement a) (Scale3d a)
 scale = transform._2
 
-updateMatrixUniforms :: Matrix GLfloat -> Matrix GLfloat -> IO ()
-updateMatrixUniforms projection modelview = do
-    p <- getCurrentProgram
-    -- Get uniform locations
-    projectionLoc <- withCString "projection" $ \ptr ->
-        glGetUniformLocation (programID p) ptr
-    modelviewLoc <- withCString "modelview" $ \ptr ->
-        glGetUniformLocation (programID p) ptr
-    samplerLoc <- withCString "sampler" $ \ptr ->
-        glGetUniformLocation (programID p) ptr
-    printError
-
-    -- Clear matrix uniforms.
-    withArray (concat projection) $ \ptr ->
-        glUniformMatrix4fv projectionLoc 1 1 ptr
-    withArray (concat modelview) $ \ptr ->
-        glUniformMatrix4fv modelviewLoc 1 1 ptr
-    printError
-
-    -- Clear the texture sampler.
-    glUniform1i samplerLoc 0
-    printError
-
 instance Renderable Game where
     render game = do
         -- Clear the screen and the depth buffer.
         clear [ColorBuffer, DepthBuffer]
         -- Update the matrix uniforms.
-        let --t          = game^.scene.transform
-            mv         = identityN 4--applyTransformation t $ identityN 4
-            p          = identityN 4
-        -- Texture
-        --activeTexture     $= TextureUnit 0
-        --textureBinding Texture2D $= Just tex
-        --printError
-
-        updateMatrixUniforms p mv
-        -- Geometry
-        --bindInterleavedVbo ivbo
-        --drawArrays Triangles 0 6
-        --printError
+        let (w,h) = game^.windowSize 
+            mScl  = (scaleMatrix3d (1/fromIntegral w) (1/fromIntegral h) 1) :: Matrix GLfloat
+            mId   = identityN 4 :: Matrix GLfloat
+            p     = mId `multiply` mScl 
+            ups   = [matUpdate, matUpdate, samUpdate]
+            names = ["projection","modelview","sampler"]
+            arrs  = map concat [p, mId, []]
+            matUpdate loc   = glUniformMatrix4fv loc 1 1
+            samUpdate loc _ = glUniform1i loc 0
+        updateUniforms names ups arrs
         render $ game^.scene
         GLFW.swapBuffers
 
