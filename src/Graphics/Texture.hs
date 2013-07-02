@@ -3,12 +3,44 @@ module Graphics.Texture where
 import Graphics.Util
 import Codec.Picture
 import Graphics.Rendering.OpenGL.GL
-
-import Control.Monad                ( unless )
+import Control.Monad                ( when, unless, foldM )
 import Data.Vector.Storable         ( unsafeWith )
+import Data.Maybe                   ( isNothing )
+import qualified Data.Map as M
 
-loadTexture :: FilePath -> IO (Maybe TextureObject)
-loadTexture f = do
+
+type TextureMap = M.Map String (Maybe TextureObject)
+
+initTextures :: [FilePath] -- ^ A list of image files to use as textures.
+             -> IO TextureMap
+initTextures files = do
+    -- Turn on texturing.
+    texture Texture2D $= Enabled
+    (_, textures') <- foldM accumulateTextures acc files
+    return textures'
+        where acc = (0, M.empty)
+
+accumulateTextures :: (Int, TextureMap) -> FilePath -> IO (Int, TextureMap)
+accumulateTextures (n,m) file = do
+    mTex <- initTexture file n
+    return (n+1, M.insert file mTex m)
+
+initTexture :: FilePath -- ^ The texture to load.
+            -> Int      -- ^ The index of the texture unit to hold the texture in.
+            -> IO (Maybe TextureObject)
+initTexture file u = do
+    -- Load our texture or die.
+    mTex <- loadTexture file u
+    unless (isNothing mTex) $ do
+        -- Set the texture params on our bound texture.
+        textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
+        textureWrapMode Texture2D S $= (Repeated, Clamp)
+        textureWrapMode Texture2D T $= (Repeated, Clamp)
+    when (isNothing mTex) $ putStrLn $ "Could not initialize "++ file
+    return mTex
+
+loadTexture :: FilePath -> Int -> IO (Maybe TextureObject)
+loadTexture f u = do
     putStrLn $ "Loading texture "++f
     eDynImg <- readImage f
     case eDynImg of
@@ -18,7 +50,7 @@ loadTexture f = do
 
         Right img -> do
             -- Get our texture object.
-            tex  <- newBoundTexUnit 0
+            tex  <- newBoundTexUnit u
             -- Buffer our texture data.
             success <- bufferDataIntoBoundTexture img
             unless success $ putStrLn $ "    ("++f++")"

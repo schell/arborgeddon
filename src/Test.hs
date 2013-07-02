@@ -31,6 +31,7 @@ vectorTestGroup = [ testProperty "magnitude"   prop_magnitude
                   , testProperty "vec3At"      prop_vec3at
                   , testProperty "vec4At"      prop_vec4at
                   ]
+
 {- [Float] -}
 prop_magnitude :: [Float] -> Bool
 prop_magnitude vec = magnitude vec == sqrt (sum $ map (**2) vec)
@@ -83,7 +84,6 @@ prop_vec4at at v = let vec4 = vec4At at v
         _         -> False
 
 {- Matrix -}
-
 matrixTestGroup :: [Test]
 matrixTestGroup = [ testProperty "transpose"               prop_matrix_transpose
                   , testProperty "deleteColRow"            prop_matrix_del
@@ -111,6 +111,7 @@ prop_matrix_del (TestMatrix m) = let del = deleteColRow m 0 0
                                         numRows del == numRows m -1
 
 prop_matrix_minorAt :: TestMatrix -> Bool
+-- Here we're just testing that the minorAt function doesn't err.
 prop_matrix_minorAt (TestMatrix m) = let minor = minorAt m 0 0
                                          in minor >= 0.0 || minor <= 0
 

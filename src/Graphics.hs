@@ -7,3 +7,4 @@ import Graphics.Vbo        as G
 import Graphics.Shaders    as G
 import Graphics.Primitives as G
 import Graphics.Texture    as G
+import Graphics.Scene      as G

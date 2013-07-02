@@ -4,6 +4,20 @@ import Data.SafeCopy
 import Data.Monoid
 import Control.Applicative
 
+{- Rectangle -}
+-- | A rect at (x,y) with (width,height).
+data Rectangle a = Rectangle (Vec2 a) (Vec2 a) deriving (Show, Eq)
+
+toTriangleRect :: (Num a) => Rectangle a -> [a]
+toTriangleRect (Rectangle (x,y) (w,h)) = concat [tl, bl, br, br, tl, tr]
+    where tl = [x,y]
+          tr = [x+w,y]
+          bl = [x,y+h]
+          br = [x+w,y+h]
+
+toTriangles :: (Num a) => [Rectangle a] -> [a]
+toTriangles = concatMap toTriangleRect
+
 {- The Matrix -}
 type Matrix a = [Vector a]
 
