@@ -35,27 +35,18 @@ main = do
     writeIORef gameRef game
 
     -- Register our resize window function.
-    GLFW.setWindowSizeCallback $ resizeWindow gameRef
+    GLFW.setWindowSizeCallback (\_ _ -> do
+        clear [ColorBuffer, DepthBuffer]
+        GLFW.swapBuffers)
 
     -- Render loop.
     forever $ stepAndRender gameRef
 
-resizeWindow :: IORef Game -> GLFW.WindowSizeCallback
-resizeWindow gameRef w h = do
-    game    <- readIORef gameRef
-    t       <- getTime
-    let clock' = execState (tickClock t) $ game^.clock
-        game' = flip execState game $ do
-        clock      .= clock'
-        windowSize .= (w,h)
-
-    writeIORef gameRef game'
-    renderGame game'
-
 stepAndRender :: IORef Game -> IO ()
 stepAndRender gameRef = do
-    game <- readIORef gameRef
-    t    <- getTime
+    game  <- readIORef gameRef
+    t     <- getTime
+    (w,h) <- GLFW.getWindowDimensions
     (input',inputEvents') <- getInputEvents $ game^.input
     -- Tie into our pure code.
     let game'' = step game'
@@ -64,9 +55,11 @@ stepAndRender gameRef = do
             clock       .= clock'
             inputEvents .= inputEvents'
             input       .= input'
+            windowSize  .= (fromIntegral w, fromIntegral h)
 
     writeIORef gameRef game''
     renderGame game''
+    print $ game''^.windowSize
 
 initGLFW :: IORef Game -> IO Bool
 initGLFW gameRef = do

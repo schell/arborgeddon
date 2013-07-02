@@ -2,7 +2,7 @@
 module Graphics.Scene where
 
 import Graphics.Vbo
-import Graphics.Texture
+import Graphics.Resource
 import Graphics.Util
 import Geometry.Types
 import Geometry.Matrix
@@ -39,8 +39,7 @@ type VboMap = M.Map String (Maybe InterleavedVbo)
 
 data Scene = Scene { _sceneId  :: Int
                    , _graph    :: SceneGraph
-                   , _textures :: TextureMap
-                   , _vbos     :: VboMap
+                   , _resources:: Maybe ResourceStore
                    }
 makeLenses ''Scene
 
@@ -79,5 +78,5 @@ updateUniforms names updates datas = do
         printError) updates datas locs
 
 emptyScene :: Scene
-emptyScene = Scene 0 emptySceneGraph mempty mempty
+emptyScene = Scene 0 emptySceneGraph Nothing 
 
