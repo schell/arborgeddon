@@ -14,7 +14,6 @@ import qualified Graphics.UI.GLFW   as GLFW
 data App a = App { _userData   :: a
                  , _userInput  :: Input
                  , _clock      :: Clock
-                 , _windowSize :: (Int, Int)
                  }
 makeLenses ''App
 makeLenses ''Input
@@ -41,7 +40,6 @@ initializeApp a = do
     let clock' = execState (tickClock time) emptyClock
     return App{ _userData = a
               , _clock = clock'
-              , _windowSize = (0,0)
               , _userInput = emptyInput
               }
 
@@ -56,7 +54,6 @@ stepApp app = do
     winOpen <- GLFW.windowIsOpen
     if winOpen then do
         t      <- getTime
-        (w, h) <- GLFW.getWindowDimensions
         input' <- getInput $ app ^. userInput
 
         let clock'     = execState (tickClock t) $ app ^. clock
@@ -64,7 +61,6 @@ stepApp app = do
             dt:_       = clock' ^. frames
             userData'' = step dt userData'
             app'       = flip execState app $ do
-                windowSize .= (fromIntegral w, fromIntegral h)
                 clock      .= clock'
                 userInput  .= input'
                 userData   .= userData''

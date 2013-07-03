@@ -1,13 +1,15 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Graphics.Resource where
 
 import Graphics.Vbo
 import Graphics.Shaders
 import Graphics.Util
 import Graphics.Texture
-import Graphics.Rendering.OpenGL
 import Control.Monad
 import Control.Applicative
+import Control.Lens
 import Data.Maybe
+import Graphics.Rendering.OpenGL
 import qualified Data.Map as M
 import Data.List ( intercalate )
 
@@ -18,6 +20,7 @@ data Renderable = Renderable { _programs     :: [Program]
                              , _uniforms     :: [[GLfloat]]
                              , _runRender    :: Renderable -> IO ()
                              }
+makeLenses ''Renderable
 
 instance Show Renderable where
     show r = let p   = show $ _programs r
@@ -32,28 +35,32 @@ instance Show Renderable where
                                  , "render="++rend
                                  ]
 
-data ProgramDef = ProgramDef { _vertSrc :: FilePath
+data ProgramDef = ProgramDef { _pName   :: String 
+                             , _vertSrc :: FilePath
                              , _fragSrc :: FilePath
                              , _attribs :: [String]
                              } deriving (Show, Eq)
+makeLenses ''ProgramDef
 
 data ProgramStore = ProgramStore { _programId :: String
                                  , _program   :: Program
                                  , _attLocs   :: [AttribLocation]
                                  }
+makeLenses ''ProgramStore
 
 data AttribArrayDef = AttribArrayDef Int [GLfloat] deriving (Show, Eq)
 
 data VboDef = VboDef String [AttribArrayDef] deriving (Show, Eq)
 data VboStore = VboStore String InterleavedVbo
 
-data TexDef = TexDef Int FilePath deriving (Show, Eq)
+data TexDef = TexDef String Int FilePath deriving (Show, Eq)
 data TexStore = TexStore String TextureObject deriving (Show, Eq)
 
 data ResourceDef = ResourceDef { _programDefs :: [ProgramDef]
                                , _texDefs     :: [TexDef]
                                , _vboDefs     :: [VboDef]
                                } deriving (Show, Eq)
+makeLenses ''ResourceDef
 
 type Map a = M.Map String a
 
@@ -61,6 +68,7 @@ data ResourceStore = ResourceStore { _programMap :: Map ProgramStore
                                    , _textureMap :: Map TextureObject
                                    , _vboMap     :: Map InterleavedVbo
                                    }
+makeLenses ''ResourceStore
 
 {- Loading -}
 loadResourceDef :: ResourceDef -> IO (Maybe ResourceStore)
@@ -74,14 +82,14 @@ loadResourceDef def = do
     vStores <- mapM loadVboDef vdefs
     -- Take the values out of Maybe
     -- and stick them in maps.
-    let programs = sequence pStores
-        texs     = sequence tStores
-        vbos     = sequence vStores
-        pMap     = mapFromProgramStores $ fromJust programs
-        tMap     = mapFromTexStores $ fromJust texs
-        vMap     = mapFromVboStores $ fromJust vbos
+    let pgrms = sequence pStores
+        texs  = sequence tStores
+        vbos  = sequence vStores
+        pMap  = mapFromProgramStores $ fromJust pgrms
+        tMap  = mapFromTexStores $ fromJust texs
+        vMap  = mapFromVboStores $ fromJust vbos
 
-    return $ if isNothing programs || isNothing texs || isNothing vbos
+    return $ if isNothing pgrms || isNothing texs || isNothing vbos
            then Nothing
            else Just ResourceStore{ _programMap = pMap
                                   , _textureMap = tMap
@@ -93,6 +101,7 @@ loadProgramDef def = do
     let vs   = _vertSrc def
         fs   = _fragSrc def
         atts = _attribs def
+        name = _pName def
         locs = AttribLocation . fromIntegral <$> [0..length atts]
 
     putStrLn $ "Loading shaders " ++ show [vs,fs]
@@ -118,17 +127,17 @@ loadProgramDef def = do
 
     return $ if not linked
         then Nothing
-        else Just ProgramStore{ _programId = vs++fs
+        else Just ProgramStore{ _programId = name 
                               , _program   = p
                               , _attLocs   = locs
                               }
 
 loadTexDef :: TexDef -> IO (Maybe TexStore)
-loadTexDef (TexDef unit file) = do
+loadTexDef (TexDef name unit file) = do
     mTex <- loadTexture file unit
     return $ case mTex of
            Nothing  -> Nothing
-           Just tex -> Just $ TexStore file tex
+           Just tex -> Just $ TexStore name tex
 
 loadVboDef :: VboDef -> IO (Maybe VboStore)
 loadVboDef (VboDef name attribDefs) = do

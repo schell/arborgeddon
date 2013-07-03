@@ -10,8 +10,8 @@ import Graphics.UI.GLFW
 import Control.Monad
 
 {- Defining -}
-data Input = Input { _state  :: InputState
-                   , _events :: [InputEvent]
+data Input = Input { _state      :: InputState
+                   , _events     :: [InputEvent]
                    }
 
 emptyInput :: Input
@@ -22,12 +22,14 @@ emptyInput = Input { _events = []
 data InputState = InputState { _keysPressed         :: [Key]
                              , _mousePosition       :: (Int, Int)
                              , _mouseButtonsPressed :: [MouseButton]
+                             , _windowSize          :: (Int, Int)
                              } deriving (Show, Eq )
 
 emptyInputState :: InputState
 emptyInputState = InputState { _keysPressed = []
                              , _mousePosition = (0,0)
                              , _mouseButtonsPressed = []
+                             , _windowSize = (0,0)
                              }
 
 {- Events -}
@@ -36,6 +38,7 @@ data InputEvent = KeyButtonDown Key
                 | MouseButtonDown MouseButton
                 | MouseButtonUp MouseButton
                 | MouseMovedTo (Int, Int)
+                | WindowSizeChangedTo (Int, Int)
                 deriving (Show, Eq)
 
 -- | Returns the current input state and any input events that occurred
@@ -43,12 +46,14 @@ data InputEvent = KeyButtonDown Key
 getInput :: Input    -- ^ The previous input state.
          -> IO Input -- ^ The new input state and any input events.
 getInput (Input s _) = do
-    (keys, buttons, position) <- getCurrentInput
-    let events'     = keyEvents++buttonEvents++moveEvents
+    (keys, buttons, position, (w, h)) <- getCurrentInput
+    let events'     = keyEvents++buttonEvents++moveEvents++winEvents
         keyEvents   = getKeyEventsBetween (_keysPressed s) keys
         buttonEvents= getButtonEventsBetween (_mouseButtonsPressed s) buttons
         moveEvents  = [ MouseMovedTo position | position /= _mousePosition s ]
-    return $ Input (InputState keys position buttons) events'
+        winEvents   = if winSize == _windowSize s then [] else [WindowSizeChangedTo winSize]
+        winSize     = (fromIntegral w, fromIntegral h)
+    return $ Input (InputState keys position buttons winSize) events'
 
 getKeyEventsBetween :: [Key] -> [Key] -> [InputEvent]
 getKeyEventsBetween = makeEventsBetween (KeyButtonDown, KeyButtonUp)
@@ -61,12 +66,13 @@ makeEventsBetween (addC, removeC) from to = fmap addC added ++ fmap removeC remo
     where added   = [ x | x <- from++to, x `notElem` from, x `elem` to ]
           removed = [ x | x <- from++to, x `notElem` to, x `elem` from ]
 
-getCurrentInput :: IO ([Key], [MouseButton], (Int, Int))
+getCurrentInput :: IO ([Key], [MouseButton], (Int, Int), (Int, Int))
 getCurrentInput = do
     buttons  <- getButtonsPressed
     position <- getMousePosition
     keys     <- getKeysPressed
-    return (keys, buttons, position)
+    winSize  <- getWindowDimensions
+    return (keys, buttons, position, winSize)
 
 getButtonsPressed :: IO [MouseButton]
 getButtonsPressed = listOfPolledInputPressed mouseButtonIsPressed mouseButtonsUsed
