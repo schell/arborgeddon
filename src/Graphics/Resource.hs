@@ -12,14 +12,14 @@ import qualified Data.Map as M
 import Data.List ( intercalate )
 
 {- Defining -}
-data Resource = Resource { _programs     :: [Program]
-                         , _buffers      :: [InterleavedVbo]
-                         , _textures     :: [TextureObject]
-                         , _uniforms     :: [[GLfloat]]
-                         , _render       :: Resource -> IO ()
-                         }
+data Renderable = Renderable { _programs     :: [Program]
+                             , _buffers      :: [InterleavedVbo]
+                             , _textures     :: [TextureObject]
+                             , _uniforms     :: [[GLfloat]]
+                             , _runRender    :: Renderable -> IO ()
+                             }
 
-instance Show Resource where
+instance Show Renderable where
     show r = let p   = show $ _programs r
                  vbo = show $ _buffers r
                  t   = show $ _textures r
@@ -42,18 +42,18 @@ data ProgramStore = ProgramStore { _programId :: String
                                  , _attLocs   :: [AttribLocation]
                                  }
 
-data AttribArrayDef = AttribArrayDef Int [GLfloat]
+data AttribArrayDef = AttribArrayDef Int [GLfloat] deriving (Show, Eq)
 
-data VboDef = VboDef String [AttribArrayDef]
+data VboDef = VboDef String [AttribArrayDef] deriving (Show, Eq)
 data VboStore = VboStore String InterleavedVbo
 
-data TexDef = TexDef Int FilePath
-data TexStore = TexStore String TextureObject
+data TexDef = TexDef Int FilePath deriving (Show, Eq)
+data TexStore = TexStore String TextureObject deriving (Show, Eq)
 
 data ResourceDef = ResourceDef { _programDefs :: [ProgramDef]
                                , _texDefs     :: [TexDef]
                                , _vboDefs     :: [VboDef]
-                               }
+                               } deriving (Show, Eq)
 
 type Map a = M.Map String a
 
