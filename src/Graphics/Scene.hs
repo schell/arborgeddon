@@ -9,10 +9,6 @@ import Geometry.Matrix
 import Geometry.MatrixTransformations
 import Data.Monoid
 import Graphics.Rendering.OpenGL.Raw
-import Graphics.Rendering.OpenGL.GL.Shaders.Program
-import Foreign.Ptr              ( Ptr )
-import Foreign.Marshal.Array    ( withArray )
-import Foreign.C.String         ( withCString )
 import Graphics.UI.GLFW         ( swapBuffers )
 import qualified Data.Map as M
 import Control.Lens              hiding ( transform )
@@ -61,21 +57,6 @@ renderScene (w,h) scene = do
     -- Render our scene.
     renderSceneGraph mId $ scene^.graph
     swapBuffers
-
-updateUniforms :: [String]                        -- ^ A list of uniform names.
-               -> [GLint -> Ptr GLfloat -> IO ()] -- ^ A list of update functions.
-               -> [[GLfloat]]                     -- ^ A list of uniform arrays.
-               -> IO ()
-updateUniforms names updates datas = do
-    p    <- getCurrentProgram
-    locs <- mapM (\name -> do
-        loc <- withCString name $ \ptr ->
-            glGetUniformLocation (programID p) ptr
-        printError
-        return loc) names
-    sequence_ $ zipWith3 (\upd arr loc -> do
-        withArray arr $ upd loc
-        printError) updates datas locs
 
 emptyScene :: Scene
 emptyScene = Scene 0 emptySceneGraph Nothing 

@@ -35,7 +35,7 @@ instance Show Renderable where
                                  , "render="++rend
                                  ]
 
-data ProgramDef = ProgramDef { _pName   :: String 
+data ProgramDef = ProgramDef { _pName   :: String
                              , _vertSrc :: FilePath
                              , _fragSrc :: FilePath
                              , _attribs :: [String]
@@ -53,7 +53,14 @@ data AttribArrayDef = AttribArrayDef Int [GLfloat] deriving (Show, Eq)
 data VboDef = VboDef String [AttribArrayDef] deriving (Show, Eq)
 data VboStore = VboStore String InterleavedVbo
 
-data TexDef = TexDef String Int FilePath deriving (Show, Eq)
+data TexParamsRunner = TexParamsRunner { _runTexParams :: IO () }
+
+instance Show TexParamsRunner where
+    show _ = "TexParamsRunner"
+instance Eq TexParamsRunner where
+    _ == _ = True
+
+data TexDef = TexDef String Int FilePath TexParamsRunner deriving (Show, Eq)
 data TexStore = TexStore String TextureObject deriving (Show, Eq)
 
 data ResourceDef = ResourceDef { _programDefs :: [ProgramDef]
@@ -127,14 +134,15 @@ loadProgramDef def = do
 
     return $ if not linked
         then Nothing
-        else Just ProgramStore{ _programId = name 
+        else Just ProgramStore{ _programId = name
                               , _program   = p
                               , _attLocs   = locs
                               }
 
 loadTexDef :: TexDef -> IO (Maybe TexStore)
-loadTexDef (TexDef name unit file) = do
+loadTexDef (TexDef name unit file runner) = do
     mTex <- loadTexture file unit
+    unless (isNothing mTex) $ _runTexParams runner
     return $ case mTex of
            Nothing  -> Nothing
            Just tex -> Just $ TexStore name tex

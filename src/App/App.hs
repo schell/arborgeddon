@@ -58,8 +58,7 @@ stepApp app = do
 
         let clock'     = execState (tickClock t) $ app ^. clock
             userData'  = input input' $ app ^. userData
-            dt:_       = clock' ^. frames
-            userData'' = step dt userData'
+            userData'' = step clock' userData'
             app'       = flip execState app $ do
                 clock      .= clock'
                 userInput  .= input'
@@ -104,8 +103,5 @@ shutdown :: IO Bool
 shutdown = do
     GLFW.closeWindow
     GLFW.terminate
-    --app <- readIORef appRef
-    --_    <- update' acid $ SaveApp $ savedAppFromApp app
-    --print app
     exitSuccess
 
