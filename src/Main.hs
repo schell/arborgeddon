@@ -4,6 +4,7 @@ import App
 import Graphics.Resource
 import Geometry.Matrix
 import Control.Lens
+import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 import System.FilePath  ( (</>) )
@@ -14,7 +15,7 @@ main = do
     app     <- initializeApp loadGame
     startApp app
 
-data Game = GameLoad ResourceDef | Game Renderable | GameOver
+data Game = GameLoad ResourceDef | Game Input Renderable | GameOver
 
 instance UserData Game where
     -- | Will turn a resource definition into a renderable game.
@@ -26,8 +27,8 @@ instance UserData Game where
 
 loadGame :: Game
 loadGame = GameLoad resource
-     where resource = ResourceDef programs texs vbos
-           programs = [texShaderDef]
+     where resource = ResourceDef pgrams texs vbos
+           pgrams   = [texShaderDef]
            texs     = [fontTexDef]
            vbos     = [fontDef]
            dataDir  = "/Users/schell/Code/arborgeddon/data/"
@@ -55,21 +56,32 @@ startGame (GameLoad rez) = do
         putStrLn $ "Loading resources: " ++ show rez
         mRStore <- loadResourceDef rez
         return $ case mRStore of
-            Just rs -> Game $ makeGameRenderable rs
+            Just rs -> Game emptyInput $ makeGameRenderable rs
             Nothing -> GameOver
 startGame _ = error "Could not start game."
 
 inputGame :: Input -> Game -> Game
-inputGame _ = id
+inputGame i (Game _ r) = Game i r 
+inputGame _ g = g
 
 stepGame :: t -> a -> a
 stepGame _ = id
 
 renderGame :: Game -> IO Game
-renderGame (Game r) = do
+renderGame (Game i r) = do
     r ^. runRender $ r
-    return $ Game r
+    renderEvents $ i ^. events
+    return $ Game i r
 renderGame game = return game
+
+renderEvents :: [InputEvent] -> IO ()
+renderEvents es = do
+    unless (null es) $ print es
+    mapM_ renderEvent es
+
+renderEvent :: InputEvent -> IO ()
+renderEvent (WindowSizeChangedTo (w,h)) = viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))  
+renderEvent _ = return ()
 
 endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
@@ -83,6 +95,7 @@ makeGameRenderable rs =
               us = [concat $ identityN 4, concat $ identityN 4]
 
 renderText :: Game -> IO Game
-renderText (Game (Renderable (p:ps) (v:vs) (t:ts) us _)) = undefined
+renderText (Game _ (Renderable (p:ps) (v:vs) (t:ts) us _)) = undefined
+renderText _ = undefined
 
 
