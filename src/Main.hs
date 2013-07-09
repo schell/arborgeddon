@@ -2,22 +2,12 @@ module Main where
 
 import App
 import Game.Game
-import Graphics
-import Geometry
-import Control.Lens
-import Control.Monad
-import Data.Monoid
-import Data.Maybe
-import Graphics.Rendering.OpenGL.Raw
-import qualified Data.Map as M
-import Graphics.Rendering.OpenGL hiding ( Matrix, Color )
 
 main :: IO ()
 main = do
     app <- initializeApp loadGame
     startApp app
 
-type Color = (GLfloat, GLfloat, GLfloat, GLfloat)
 --renderString :: String -> Color -> (GLfloat, GLfloat) -> (GLfloat, GLfloat) -> Renderable -> IO ()
 --renderString s c p (w,h) r = zipWithM_ renderChar' s ps
 --    where renderChar' ch p' = renderChar ch c p' (w,h) r

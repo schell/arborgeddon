@@ -8,22 +8,21 @@ import Foreign.Marshal.Array    ( withArray )
 import Foreign.C.String         ( withCString )
 import System.IO                (hPutStrLn, stderr)
 
+type RawUniformUpdateFn = GLint -> Ptr GLfloat -> IO ()
+
 printError :: IO ()
 printError = get errors >>= mapM_ (hPutStrLn stderr . ("GL: "++) . show)
 
-updateUniforms :: [String]                        -- ^ A list of uniform names.
-               -> [GLint -> Ptr GLfloat -> IO ()] -- ^ A list of update functions.
-               -> [[GLfloat]]                     -- ^ A list of uniform arrays.
+updateUniformRaw :: String           -- ^ The uniform name.
+               -> RawUniformUpdateFn -- ^ The update function.
+               -> [GLfloat]          -- ^ the uniform array.
                -> IO ()
-updateUniforms names updates datas = do
-    p    <- getCurrentProgram
-    locs <- mapM (\name -> do
-        loc <- withCString name $ \ptr ->
-            glGetUniformLocation (programID p) ptr
-        printError
-        return loc) names
-    sequence_ $ zipWith3 (\upd arr loc -> do
-        withArray arr $ upd loc
-        printError) updates datas locs
-
+updateUniformRaw name update data' = do
+    p   <- getCurrentProgram
+    loc <- withCString name $ \ptr -> do
+                l <- glGetUniformLocation (programID p) ptr
+                printError
+                return l
+    withArray data' $ update loc
+    printError
 

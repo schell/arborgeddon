@@ -49,13 +49,13 @@ loadGame = GameLoad resource
                               ,x*w+w,y*h
                               ,x*w+w,y*h+h
                               ,x*w,y*h+h] | y <- [0..5], x <- [0..31], w <- [8/256], h <- [8/256] ]
-           triVerts   = AttributeData (Attribute "position" Vec3) triangle3d
-           colorVerts = AttributeData (Attribute "color" Vec4) [ 1, 0, 0, 1
+           triVerts   = AttributeData (Attribute Vec3 "position") triangle3d
+           colorVerts = AttributeData (Attribute Vec4 "color") [ 1, 0, 0, 1
                                                                , 0, 1, 0, 1
                                                                , 0, 0, 1, 1
                                                                ]
-           fontVertArr = AttributeData (Attribute "position" Vec3) fontPs
-           fontUVArr   = AttributeData (Attribute "uv" Vec2) fontUVs
+           fontVertArr = AttributeData (Attribute Vec3 "position") fontPs
+           fontUVArr   = AttributeData (Attribute Vec2 "uv") fontUVs
 
 
 dataDir :: FilePath
@@ -72,13 +72,13 @@ fontShaderProgram :: ShaderProgram
 fontShaderProgram =
     ShaderProgram { _shaderName = "font"
                   , _shaderSrc  = (shaderDir </> "font.vert",shaderDir </> "font.frag")
-                  , _attributes = [ Attribute "position" Vec3
-                                  , Attribute "uv" Vec2
+                  , _attributes = [ Attribute Vec3 "position"
+                                  , Attribute Vec2 "uv"
                                   ]
-                  , _uniforms   = [ Uniform "color" Vec4
-                                  , Uniform "projection" Mat4
-                                  , Uniform "modelview" Mat4
-                                  , Uniform "sampler" Sam2D
+                  , _uniforms   = [ Uniform Vec4 "color"
+                                  , Uniform Mat4 "projection"
+                                  , Uniform Mat4 "modelview"
+                                  , Uniform Sam2D "sampler"
                                   ]
                   , _program    = Nothing
                   }
@@ -88,11 +88,11 @@ colorShaderProgram :: ShaderProgram
 colorShaderProgram =
     ShaderProgram { _shaderName = "color"
                   , _shaderSrc  = (shaderDir </> "color.vert",shaderDir </> "color.frag")
-                  , _attributes = [ Attribute "position" Vec3
-                                  , Attribute "color" Vec2
+                  , _attributes = [ Attribute Vec3 "position"
+                                  , Attribute Vec2 "color"
                                   ]
-                  , _uniforms   = [ Uniform "projection" Mat4
-                                  , Uniform "modelview" Mat4
+                  , _uniforms   = [ Uniform Mat4 "projection"
+                                  , Uniform Mat4 "modelview"
                                   ]
                   , _program    = Nothing
                   }
@@ -141,18 +141,9 @@ stepGame _  g = g
 
 
 renderGame :: Game -> IO Game
-renderGame g@(Game c i sn rez) = do
+renderGame g@(Game _ i sn rez) = do
     clear [ColorBuffer, DepthBuffer]
     renderEvents $ i ^. events
-    let names = ["projection"]
-        ups   = [matUp]
-        matUp l = glUniformMatrix4fv l 1 1
-        arrs  = [concat proj]
-        proj  = orthoMatrix 0 w 0 h 0 1 :: Matrix GLfloat
-        (w,h) = (fromIntegral wi, fromIntegral hi)
-        (wi,hi) = i ^. currentState . windowSize
-        fps = show (ceiling $ c ^. avgFPS) ++ " fps"
-    updateUniforms names ups arrs
     renderSceneGraphAt (identityN 4) sn rez
     return g
 renderGame g = return g
@@ -171,5 +162,10 @@ endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
 makeGameScene :: SceneGraph
-makeGameScene = SceneRoot 0 0 $ SceneNode mempty $ ColoredTri (16,16) (16,16)
+makeGameScene = root
+    where root = SceneRoot 0 0 graph
+          graph= SceneGraph mempty [trinode1, trinode2]
+          trinode1 = SceneNode mempty $ ColoredTri (16,16) (16,16)
+          tfrm     = (Rotation (pi*0.5) 0 0, Scale 1 1 1, Translation 0 0 0)
+          trinode2 = SceneNode tfrm $ ColoredTri (16,16) (16,16)
 

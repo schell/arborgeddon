@@ -104,7 +104,7 @@ loadTexDef (TexDef name unit file runner) = do
 loadVboDef :: VboDef -> IO (Maybe VboStore)
 loadVboDef (VboDef name attribDefs) = do
     let (comps,datas) = foldr f ([],[]) attribDefs
-        f (AttributeData (Attribute _ t) d) (cs,ds) = (fromIntegral (numComponents t):cs,d:ds)
+        f (AttributeData (Attribute t _) d) (cs,ds) = (fromIntegral (numComponents t):cs,d:ds)
         locs = AttribLocation . fromIntegral <$> [0..length comps - 1]
     ivbo <- interleavedVbo datas comps locs
     return $ Just $ VboStore name ivbo
