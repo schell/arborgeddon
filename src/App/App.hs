@@ -16,8 +16,6 @@ data App a = App { _userData   :: a
                  , _clock      :: Clock
                  }
 makeLenses ''App
-makeLenses ''Input
-makeLenses ''InputState
 
 initializeApp :: a -> IO (App a)
 initializeApp a = do
@@ -27,8 +25,8 @@ initializeApp a = do
     -- When True this gives us a moment
     -- to attach an OGL profiler.
     when False $ do
-        putStrLn "Waiting for get line..."
-        _         <- getLine
+        putStrLn "Waiting for any button press..."
+        void getChar
         return ()
 
 

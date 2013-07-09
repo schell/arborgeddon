@@ -32,10 +32,11 @@ createVbo vertexData = do
     vertexAttribPointer (AttribLocation 0) $= (ToFloat, VertexArrayDescriptor 3 Float 0 nullPtr)
     return vbo
 
-interleavedVbo :: (Storable a, Show a) => [[a]]
-           -> [NumComponents]
-           -> [AttribLocation]
-           -> IO InterleavedVbo
+interleavedVbo :: (Storable a, Show a)
+               => [[a]]
+               -> [NumComponents]
+               -> [AttribLocation]
+               -> IO InterleavedVbo
 interleavedVbo arrays sizes locs = do
     putStrLn "Creating interleaved vbo."
 

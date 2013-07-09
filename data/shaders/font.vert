@@ -5,8 +5,8 @@ varying vec2 vTex;
 varying vec4 vColor;
 
 uniform vec4 color;
-uniform mat4 modelview;
 uniform mat4 projection;
+uniform mat4 modelview;
 
 void main () {
     vTex = uv;

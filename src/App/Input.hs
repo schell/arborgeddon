@@ -1,29 +1,48 @@
+{-# LANGUAGE TemplateHaskell #-}
 module App.Input (
     getInput,
     emptyInput,
     Input(..),
     InputState(..),
-    InputEvent(..)
+    InputEvent(..),
+    -- Lenses
+    keysPressed,
+    mousePosition,
+    mouseButtonsPressed,
+    windowSize,
+    currentState,
+    events
 ) where
 
 import Graphics.UI.GLFW
 import Control.Monad
+import Control.Lens hiding ( from, to )
 
 {- Defining -}
-data Input = Input { _state      :: InputState
-                   , _events     :: [InputEvent]
-                   }
-
-emptyInput :: Input
-emptyInput = Input { _events = []
-                   , _state = emptyInputState
-                   }
-
 data InputState = InputState { _keysPressed         :: [Key]
                              , _mousePosition       :: (Int, Int)
                              , _mouseButtonsPressed :: [MouseButton]
                              , _windowSize          :: (Int, Int)
                              } deriving (Show, Eq )
+makeLenses ''InputState
+
+data InputEvent = KeyButtonDown Key
+                | KeyButtonUp Key
+                | MouseButtonDown MouseButton
+                | MouseButtonUp MouseButton
+                | MouseMovedTo (Int, Int)
+                | WindowSizeChangedTo (Int, Int)
+                deriving (Show, Eq)
+
+data Input = Input { _currentState :: InputState
+                   , _events       :: [InputEvent]
+                   }
+makeLenses ''Input
+
+emptyInput :: Input
+emptyInput = Input { _events = []
+                   , _currentState = emptyInputState
+                   }
 
 emptyInputState :: InputState
 emptyInputState = InputState { _keysPressed = []
@@ -33,14 +52,6 @@ emptyInputState = InputState { _keysPressed = []
                              }
 
 {- Events -}
-data InputEvent = KeyButtonDown Key
-                | KeyButtonUp Key
-                | MouseButtonDown MouseButton
-                | MouseButtonUp MouseButton
-                | MouseMovedTo (Int, Int)
-                | WindowSizeChangedTo (Int, Int)
-                deriving (Show, Eq)
-
 -- | Returns the current input state and any input events that occurred
 -- between the current and previous states.
 getInput :: Input    -- ^ The previous input state.
