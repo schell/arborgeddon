@@ -57,8 +57,8 @@ uniformUpdateToUniform (UpdateSampler n _) = Uniform Sam2D n
 uniformInShader :: ShaderUniformUpdate -> ShaderProgram -> Bool
 uniformInShader ufrm sh = uniformUpdateToUniform ufrm `elem` sh ^. uniforms
 
-updateUniform :: ShaderUniformUpdate -> ShaderProgram -> IO Bool
-updateUniform ufrm sh =
+updateUniform :: ShaderProgram -> ShaderUniformUpdate -> IO Bool
+updateUniform sh ufrm =
     let name = uniformName ufrm
         up   = uniformUpdate ufrm
         arr  = uniformData ufrm

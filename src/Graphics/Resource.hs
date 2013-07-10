@@ -39,6 +39,12 @@ instance Show TexParamsRunner where
 instance Eq TexParamsRunner where
     _ == _ = True
 
+runTexParams :: TexParamsRunner
+runTexParams = TexParamsRunner $ do
+    textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
+    textureWrapMode Texture2D S $= (Repeated, Clamp)
+    textureWrapMode Texture2D T $= (Repeated, Clamp)
+
 data TexDef = TexDef String Int FilePath TexParamsRunner deriving (Show, Eq)
 data TexStore = TexStore String TextureObject deriving (Show, Eq)
 

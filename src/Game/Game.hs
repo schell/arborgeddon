@@ -6,12 +6,11 @@ import App.Clock
 import App.Input
 import Graphics
 import Geometry
-import Graphics.Rendering.OpenGL.Raw
 import Data.Monoid
 import Control.Monad.State
+import Graphics.Rendering.OpenGL  ( clear, ClearBuffer(..) )
 import System.FilePath  ( (</>) )
-import Graphics.Rendering.OpenGL hiding ( Matrix )
-import Control.Lens              hiding ( transform )
+import Control.Lens hiding ( transform )
 
 data Game = GameLoad { _rsrcDef :: ResourceDef }
           | Game { _clock     :: Clock
@@ -97,14 +96,6 @@ colorShaderProgram =
                   , _program    = Nothing
                   }
 
-
-runTexParams :: TexParamsRunner
-runTexParams = TexParamsRunner $ do
-    textureFilter   Texture2D   $= ((Nearest, Nothing), Nearest)
-    textureWrapMode Texture2D S $= (Repeated, Clamp)
-    textureWrapMode Texture2D T $= (Repeated, Clamp)
-
-
 startGame :: Game -> IO Game
 startGame (GameLoad rez) = do
         putStrLn "Loading resource def."
@@ -153,9 +144,7 @@ renderEvents :: [InputEvent] -> IO ()
 renderEvents = mapM_ renderEvent
 
 renderEvent :: InputEvent -> IO ()
-renderEvent (WindowSizeChangedTo (w,h)) = viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
-renderEvent e = print e
-
+renderEvent = print
 
 
 endGame :: t -> IO ()
@@ -163,9 +152,9 @@ endGame _ = putStrLn "Done."
 
 makeGameScene :: SceneGraph
 makeGameScene = root
-    where root = SceneRoot 0 0 graph
-          graph= SceneGraph mempty [trinode1, trinode2]
-          trinode1 = SceneNode mempty $ ColoredTri (16,16) (16,16)
-          tfrm     = (Rotation (pi*0.5) 0 0, Scale 1 1 1, Translation 0 0 0)
-          trinode2 = SceneNode tfrm $ ColoredTri (16,16) (16,16)
+    where root   = SceneRoot 0 0 graph
+          graph  = SceneGraph mempty [graph',text]
+          text   = SceneNode (scale 16 16 1 mempty) $ TextString "Booyah!"
+          graph' = SceneGraph mempty $ SceneNode (scale 16 16 1 mempty) ColoredTri :foldNodes
+          foldNodes = fmap ((\i -> SceneNode (scale 16 16 1 $ translate i i 0 mempty) ColoredTri) . (*16)) [0..100]
 
