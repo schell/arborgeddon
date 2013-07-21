@@ -32,7 +32,7 @@ type Vec4 a = (a, a, a, a)
 type Transform3d a = (Rotation3d a, Scale3d a, Translation3d a)
 
 scale :: Num a => a -> a -> a -> Transform3d a -> Transform3d a
-scale x' y' z' (r,Scale x y z,t) = (r,Scale (x+x') (y+y') (z+z'),t)
+scale x' y' z' (r,Scale x y z,t) = (r,Scale (x*x') (y*y') (z*z'),t)
 
 translate :: Num a => a -> a -> a -> Transform3d a -> Transform3d a
 translate x' y' z' (r,s,Translation x y z) = (r,s,Translation (x+x') (y+y') (z+z'))

@@ -122,7 +122,7 @@ inputGame i@(Input _ es) g@(Game _ _ _ sg)  = flip execState g $ do
 
 
 inputEvent :: InputEvent -> SceneGraph -> SceneGraph
-inputEvent (WindowSizeChangedTo (w,h)) (SceneRoot _ _ sg) = SceneRoot w h sg
+inputEvent (WindowSizeChangedTo (w,h)) (SceneRoot n _ _ sg) = SceneRoot n w h sg
 inputEvent _ sg = sg
 
 
@@ -132,10 +132,10 @@ stepGame _  g = g
 
 
 renderGame :: Game -> IO Game
-renderGame g@(Game _ i sn rez) = do
+renderGame g@(Game _ i rez sn) = do
     clear [ColorBuffer, DepthBuffer]
     renderEvents $ i ^. events
-    renderSceneGraphAt (identityN 4) sn rez
+    renderSceneGraphAt (identityN 4) rez sn
     return g
 renderGame g = return g
 
@@ -151,10 +151,11 @@ endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
 makeGameScene :: SceneGraph
-makeGameScene = root
-    where root   = SceneRoot 0 0 graph
-          graph  = SceneGraph mempty [graph',text]
-          text   = SceneNode (scale 16 16 1 mempty) $ TextString "Booyah!"
-          graph' = SceneGraph mempty $ SceneNode (scale 16 16 1 mempty) ColoredTri :foldNodes
-          foldNodes = fmap ((\i -> SceneNode (scale 16 16 1 $ translate i i 0 mempty) ColoredTri) . (*16)) [0..100]
+makeGameScene = root'
+    where root   = SceneRoot 0 0 0 Nothing
+          root'  = addChild graph' root
+          graph' = addChild text graph
+          graph  = SceneGraph mempty (map tri [0..1000])
+          text   = SceneNode (NMetaData 0 Nothing $ scale 16 16 1 mempty) $ TextString "Booyah!"
+          tri i  = SceneNode (NMetaData 0 Nothing $ scale 16 16 1 $ translate i i 0 mempty) ColoredTri
 
