@@ -16,7 +16,7 @@ data Game = GameLoad { _rsrcDef :: ResourceDef }
           | Game { _clock     :: Clock
                  , _userInput :: Input
                  , _rsrc      :: ResourceStore
-                 , _scene     :: SceneGraph
+                 , _scene     :: SceneRoot
                  }
           | GameOver
 makeLenses ''Game
@@ -121,7 +121,7 @@ inputGame i@(Input _ es) g@(Game _ _ _ sg)  = flip execState g $ do
     scene .= foldl (flip inputEvent) sg es
 
 
-inputEvent :: InputEvent -> SceneGraph -> SceneGraph
+inputEvent :: InputEvent -> SceneRoot -> SceneRoot
 inputEvent (WindowSizeChangedTo (w,h)) (SceneRoot n _ _ sg) = SceneRoot n w h sg
 inputEvent _ sg = sg
 
@@ -135,7 +135,7 @@ renderGame :: Game -> IO Game
 renderGame g@(Game _ i rez sn) = do
     clear [ColorBuffer, DepthBuffer]
     renderEvents $ i ^. events
-    renderSceneGraphAt (identityN 4) rez sn
+    renderRootAt (identityN 4) rez sn
     return g
 renderGame g = return g
 
@@ -150,12 +150,12 @@ renderEvent = print
 endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
-makeGameScene :: SceneGraph
+makeGameScene :: SceneRoot
 makeGameScene = root'
     where root   = SceneRoot 0 0 0 Nothing
           root'  = addChild graph' root
-          graph' = addChild text graph
-          graph  = SceneGraph mempty (map tri [0..1000])
-          text   = SceneNode (NMetaData 0 Nothing $ scale 16 16 1 mempty) $ TextString "Booyah!"
-          tri i  = SceneNode (NMetaData 0 Nothing $ scale 16 16 1 $ translate i i 0 mempty) ColoredTri
+          graph' = addNode text graph
+          graph  = SceneGraph mempty (map (Right . tri) [0..1000])
+          text   = SceneNode (NMetaData 0 $ scale 16 16 1 mempty) $ TextString "Booyah!"
+          tri i  = SceneNode (NMetaData 0 $ scale 16 16 1 $ translate i i 0 mempty) ColoredTri
 
