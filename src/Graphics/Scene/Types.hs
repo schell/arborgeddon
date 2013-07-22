@@ -3,43 +3,28 @@ module Graphics.Scene.Types where
 
 import Geometry
 import Control.Lens
-import Data.Monoid
+--import Data.Monoid
 import Graphics.Rendering.OpenGL ( GLfloat )
+import qualified Data.IntMap as M
 
 data DisplayObject = TextChar Char
                    | TextString String
                    | ColoredTri
                    deriving (Show, Eq)
 
-data NodeMetaData = NMetaData { _nodeId        :: Int
-                              , _nodeTransform :: Transform3d GLfloat
-                              } deriving (Show, Eq)
-makeLenses ''NodeMetaData
+data Scene a = Scene  { _sceneWidth      :: Int
+                      , _sceneHeight     :: Int
+                      , _sceneNodes      :: [Node a]
+                      , _sceneTransforms :: PathMap
+                      } deriving (Show, Eq)
 
-instance Monoid NodeMetaData where
-    mempty = NMetaData { _nodeId = 0 
-                       , _nodeTransform = mempty
-                       }
-    mappend a b = NMetaData { _nodeId = _nodeId b 
-                            , _nodeTransform = _nodeTransform a `mappend` _nodeTransform b
-                            }
+data Node a = Node { _nodePath      :: [Int]
+                   , _nodeObject    :: a
+                   , _nodeTransform :: Transform3d GLfloat
+                   } deriving (Show, Eq)
 
+type PathMap = M.IntMap (Transform3d GLfloat)
 
-data SceneNode = SceneNode { _sNodeData   :: NodeMetaData
-                           , _sNodeObject :: DisplayObject
-                           } deriving (Eq, Show)
-makeLenses ''SceneNode
-
-data SceneGraph = SceneGraph { _sGraphData      :: NodeMetaData
-                             , _sGraphChildren  :: [Either SceneGraph SceneNode]
-                             } deriving (Eq, Show)
-makeLenses ''SceneGraph
-
-data SceneRoot = SceneRoot  { _sRootNextId     :: Int
-                            , _sRootWidth      :: Int
-                            , _sRootHeight     :: Int
-                            , _sRootGraph      :: Maybe SceneGraph
-                            }
-                            deriving (Show, Eq)
-makeLenses ''SceneRoot
+makeLenses ''Node
+makeLenses ''Scene
 

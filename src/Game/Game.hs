@@ -11,12 +11,13 @@ import Control.Monad.State
 import Graphics.Rendering.OpenGL  ( clear, ClearBuffer(..) )
 import System.FilePath  ( (</>) )
 import Control.Lens hiding ( transform )
+import qualified Data.IntMap as IM
 
 data Game = GameLoad { _rsrcDef :: ResourceDef }
           | Game { _clock     :: Clock
                  , _userInput :: Input
                  , _rsrc      :: ResourceStore
-                 , _scene     :: SceneRoot
+                 , _scene     :: Scene DisplayObject
                  }
           | GameOver
 makeLenses ''Game
@@ -121,8 +122,8 @@ inputGame i@(Input _ es) g@(Game _ _ _ sg)  = flip execState g $ do
     scene .= foldl (flip inputEvent) sg es
 
 
-inputEvent :: InputEvent -> SceneRoot -> SceneRoot
-inputEvent (WindowSizeChangedTo (w,h)) (SceneRoot n _ _ sg) = SceneRoot n w h sg
+inputEvent :: InputEvent -> Scene a -> Scene a
+inputEvent (WindowSizeChangedTo (w,h)) (Scene _ _ ns ts) = Scene w h ns ts
 inputEvent _ sg = sg
 
 
@@ -135,7 +136,7 @@ renderGame :: Game -> IO Game
 renderGame g@(Game _ i rez sn) = do
     clear [ColorBuffer, DepthBuffer]
     renderEvents $ i ^. events
-    renderRootAt (identityN 4) rez sn
+    renderScene rez sn
     return g
 renderGame g = return g
 
@@ -150,12 +151,11 @@ renderEvent = print
 endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
-makeGameScene :: SceneRoot
-makeGameScene = root'
-    where root   = SceneRoot 0 0 0 Nothing
-          root'  = addChild graph' root
-          graph' = addNode text graph
-          graph  = SceneGraph mempty (map (Right . tri) [0..1000])
-          text   = SceneNode (NMetaData 0 $ scale 16 16 1 mempty) $ TextString "Booyah!"
-          tri i  = SceneNode (NMetaData 0 $ scale 16 16 1 $ translate i i 0 mempty) ColoredTri
+makeGameScene :: Scene DisplayObject
+makeGameScene = root
+    where root   = Scene 0 0 (tris ++ [text]) containers
+          containers = mempty 
+          text   = Node [] (TextString "Booyah!") $ scale 16 16 1 mempty
+          tris   = map tri [0..1000] 
+          tri i  = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty 
 

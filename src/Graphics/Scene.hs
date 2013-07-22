@@ -10,80 +10,71 @@ import Data.Maybe
 import Data.Monoid
 import Control.Lens
 import Control.Monad
-import Control.Monad.State
-import qualified Data.Map as M
+import qualified Data.Map    as M
+import qualified Data.IntMap as IM
 import Graphics.Rendering.OpenGL hiding ( Matrix, translate )
 
 
 {- Mutating the Scene -}
 
-addChild :: SceneGraph
-         -> SceneRoot
-         -> SceneRoot
-addChild c (SceneRoot i w h _) = SceneRoot i w h $ Just c
-
-addGraph :: SceneGraph  -- The child to add
-         -> SceneGraph  -- The parent to add it to
-         -> SceneGraph  -- The new parent after the addition
-addGraph c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Left c]) p
-
-addNode :: SceneNode  -- The child node to add
-        -> SceneGraph -- The parent graph
-        -> SceneGraph -- The new graph
-addNode c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Right c]) p
-
-add :: Either SceneGraph SceneNode
-    -> SceneGraph
-    -> SceneGraph
-add (Left g)  = addGraph g
-add (Right n) = addNode n
-
-removeGraph :: SceneGraph -- The child to remove
-            -> SceneGraph -- The parent to remove it from
-            -> SceneGraph -- The new parent after the removal
-removeGraph c g = flip execState g $ do
-    ch <- use sGraphChildren
-    sGraphChildren .= filter (/= Left c) ch
-
-removeNode :: SceneNode -- The child to remove
-           -> SceneGraph -- The parent to remove it from
-           -> SceneGraph -- The new parent after the removal
-removeNode c g = flip execState g $ do
-    ch <- use sGraphChildren
-    sGraphChildren .= filter (/= Right c) ch
-
-remove :: Either SceneGraph SceneNode -- The child to remove
-          -> SceneGraph -- The parent to remove it from
-          -> SceneGraph -- The new parent after the removal
-remove (Left g)  = removeGraph g
-remove (Right n) = removeNode n
+--addChild :: SceneGraph
+--         -> SceneRoot
+--         -> SceneRoot
+--addChild c (SceneRoot i w h _) = SceneRoot i w h $ Just c
+--
+--addGraph :: SceneGraph  -- The child to add
+--         -> SceneGraph  -- The parent to add it to
+--         -> SceneGraph  -- The new parent after the addition
+--addGraph c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Left c]) p
+--
+--addNode :: SceneNode  -- The child node to add
+--        -> SceneGraph -- The parent graph
+--        -> SceneGraph -- The new graph
+--addNode c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Right c]) p
+--
+--add :: Either SceneGraph SceneNode
+--    -> SceneGraph
+--    -> SceneGraph
+--add (Left g)  = addGraph g
+--add (Right n) = addNode n
+--
+--removeGraph :: SceneGraph -- The child to remove
+--            -> SceneGraph -- The parent to remove it from
+--            -> SceneGraph -- The new parent after the removal
+--removeGraph c g = flip execState g $ do
+--    ch <- use sGraphChildren
+--    sGraphChildren .= filter (/= Left c) ch
+--
+--removeNode :: SceneNode -- The child to remove
+--           -> SceneGraph -- The parent to remove it from
+--           -> SceneGraph -- The new parent after the removal
+--removeNode c g = flip execState g $ do
+--    ch <- use sGraphChildren
+--    sGraphChildren .= filter (/= Right c) ch
+--
+--remove :: Either SceneGraph SceneNode -- The child to remove
+--          -> SceneGraph -- The parent to remove it from
+--          -> SceneGraph -- The new parent after the removal
+--remove (Left g)  = removeGraph g
+--remove (Right n) = removeNode n
 
 {- Rendering the Scene -}
 
-renderRootAt :: Matrix GLfloat -> ResourceStore -> SceneRoot -> IO ()
-renderRootAt mat rez (SceneRoot _ w h mSg) = when (isJust mSg) $ do
-    let sg    = fromJust mSg
-        pgms  = rez ^. programMap . to M.elems
+renderScene :: ResourceStore -> Scene DisplayObject -> IO ()
+renderScene rez (Scene w h ns ts) = unless (null ns) $ do
+    let pgms  = rez ^. programMap . to M.elems
         orth  = orthoMatrix 0 (fromIntegral w) 0 (fromIntegral h) 0 1 :: Matrix GLfloat
         upd   = flip updateUniform $ UpdateMat4 "projection" orth
     viewport $= (Position 0 0, Size (fromIntegral w) (fromIntegral h))
     mapM_ upd pgms
-    renderGraphAt mat rez sg
+    mapM_ (renderNode rez ts) ns
 
-renderGraphAt :: Matrix GLfloat -> ResourceStore -> SceneGraph -> IO ()
-renderGraphAt mat rez (SceneGraph (NMetaData _ tfrm) chldn) =
-    let mat' = applyTransformation tfrm mat
-        rndr = renderGraphOrNodeAt mat' rez
-    in mapM_ rndr chldn
-
-renderNodeAt :: Matrix GLfloat -> ResourceStore -> SceneNode -> IO ()
-renderNodeAt mat rez (SceneNode (NMetaData _ tfrm) dObj) =
-    let mat' = applyTransformation tfrm mat
-    in renderDisplayObject mat' rez dObj
-
-renderGraphOrNodeAt :: Matrix GLfloat -> ResourceStore -> Either SceneGraph SceneNode -> IO ()
-renderGraphOrNodeAt mat rez (Left g) = renderGraphAt mat rez g
-renderGraphOrNodeAt mat rez (Right n) = renderNodeAt mat rez n
+renderNode :: ResourceStore -> PathMap -> Node DisplayObject -> IO ()
+renderNode rez pm n =
+    let mTfrm = fmap mconcat $ mapM (`IM.lookup` pm) $ n ^. nodePath
+        mat   = applyTransformation (n ^. nodeTransform) $ identityN 4
+        mMat' = fmap (`applyTransformation` mat) mTfrm
+    in unless (isNothing mMat') $ renderDisplayObject (fromJust mMat') rez $ n ^. nodeObject
 
 renderDisplayObject :: Matrix GLfloat -> ResourceStore -> DisplayObject -> IO ()
 renderDisplayObject mat rez ColoredTri = do

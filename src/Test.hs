@@ -3,21 +3,21 @@ module Main where
 
 import Test.Framework ( Test, defaultMain, testGroup )
 import Data.Maybe     ( fromJust, isNothing )
-
+import Data.List      ( intercalate )
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 import Debug.Trace
-
+import Data.Monoid
 import Geometry
-
 import Prelude hiding ( subtract )
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: [Test]
-tests = [ testGroup "[Float] Group" vectorTestGroup
+tests = [ testGroup "Vector Group" vectorTestGroup
         , testGroup "Matrix Group" matrixTestGroup
+        , testGroup "Transform Group" transformTestGroup
         ]
 
 vectorTestGroup :: [Test]
@@ -135,3 +135,34 @@ prop_matrix_id_n :: Bool
 prop_matrix_id_n = let i = identityN 4 in
     (4 == numRows i) &&
         4 == numColumns i
+
+{- Transforms -}
+
+-- We conduct our tests with Ints so we don't incur problems
+-- from rounding.
+data TestTransform = TestTransform (Transform3d Int) deriving (Show, Eq)
+
+instance Monoid TestTransform where
+    mempty = TestTransform mempty
+    mappend (TestTransform a) (TestTransform b) = TestTransform (a `mappend` b)
+
+instance Arbitrary TestTransform where
+    arbitrary = do
+        rs <- vector 3
+        ss <- vector 3
+        ts <- vector 3
+
+        return $ TestTransform $ tfrm rs ss ts
+        where tfrm rs ss ts = (r rs, s ss, t ts)
+              r [x,y,z] = Rotation x y z
+              s [x,y,z] = Scale x y z
+              t [x,y,z] = Translation x y z
+
+transformTestGroup :: [Test]
+transformTestGroup = [ testProperty "transform is associative" prop_append_transform_is_associative ]
+
+prop_append_transform_is_associative :: TestTransform -> TestTransform -> TestTransform -> Bool
+prop_append_transform_is_associative t1 t2 t3 = t4 == t5
+    where t4 = t1 `mappend` (t2 `mappend` t3)
+          t5 = (t1 `mappend` t2) `mappend` t3
+
