@@ -6,6 +6,7 @@ import App.Clock
 import App.Input
 import Graphics
 import Data.Monoid
+import Debug.Trace
 import Control.Monad.State
 import Graphics.Rendering.OpenGL  ( clear, ClearBuffer(..) )
 import System.FilePath  ( (</>) )
@@ -150,13 +151,13 @@ endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
 makeGameScene :: Scene DisplayObject
-makeGameScene = root
-    where root   = Scene 0 0 (tris ++ [text]) paths
-          leftC  = 0
-          rightC = 1
-          paths  = foldl (flip initPath) mempty [leftC,rightC]
-          text   = Node [] (TextString "Booyah!") $ scale 16 16 1 mempty
-          tris   = map tri [0..500]
-          tris'  = map tri [0..500]
-          tri i  = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty
+makeGameScene = trace (show root) root
+    where root      = Scene 0 0 (tris' ++ tris ++ [text]) paths
+          leftC     = 0
+          rightC    = 1
+          NodeContainer (_,paths) = rotate 0 0 (pi/2) $ NodeContainer (rightC, foldl (flip initPath) mempty [leftC,rightC])
+          text      = Node [] (TextString "Booyah!") $ scale 16 16 1 mempty
+          tris      = map tri [100]
+          tris'     = map (setPath [rightC]) tris
+          tri i     = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty
 

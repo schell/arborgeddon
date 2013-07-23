@@ -63,7 +63,7 @@ data Scale3d a = Scale a a a deriving (Show, Eq)
 
 instance Num a => Monoid (Scale3d a) where
     mempty = Scale 1 1 1
-    mappend (Scale x1 y1 z1) (Scale x2 y2 z2) = Scale (x1+x2) (y1+y2) (z1+z2)
+    mappend (Scale x1 y1 z1) (Scale x2 y2 z2) = Scale (x1*x2) (y1*y2) (z1*z2)
 instance (SafeCopy a) => SafeCopy (Scale3d a) where
     putCopy (Scale x y z) = contain $ safePut [x,y,z]
     getCopy = contain $ (\[x,y,z] -> Scale x y z) <$> safeGet

@@ -9,6 +9,7 @@ import Graphics.Rendering.OpenGL.Raw
 import Graphics.TypeClasses
 import Data.Maybe
 import Data.Monoid
+import Debug.Trace
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
@@ -19,8 +20,8 @@ import Graphics.Rendering.OpenGL hiding ( Matrix, translate )
 
 {- Mutating the Scene -}
 
-setPath :: [Int] -> State (Node a) ()
-setPath p = nodePath .= p
+setPath :: [Int] -> Node a -> Node a
+setPath p n = nodePath .~ p $ n
 
 addNode :: Node a -> Scene a -> Scene a
 addNode n = execState $ do
@@ -28,7 +29,8 @@ addNode n = execState $ do
     sceneNodes .= ns ++ [n]
 
 initPath :: Int -> PathMap -> PathMap
-initPath c = IM.insert c mempty
+initPath c = IM.insert c $ trace (show mat) mat
+    where mat = mempty
 
 {- Rendering the Scene -}
 
