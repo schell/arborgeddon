@@ -2,8 +2,9 @@
 module Graphics.Scene.Types where
 
 import Geometry
+import Graphics.TypeClasses
+
 import Control.Lens
---import Data.Monoid
 import Graphics.Rendering.OpenGL ( GLfloat )
 import qualified Data.IntMap as M
 
@@ -27,4 +28,10 @@ type PathMap = M.IntMap (Transform3d GLfloat)
 
 makeLenses ''Node
 makeLenses ''Scene
+
+{- Class instances -}
+instance Transformable (Node a) where
+    scale x y z n     = nodeTransform .~ scale x y z (n ^. nodeTransform) $ n
+    rotate x y z n    = nodeTransform .~ rotate x y z (n ^. nodeTransform) $ n
+    translate x y z n = nodeTransform .~ translate x y z (n ^. nodeTransform) $ n
 

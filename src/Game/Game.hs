@@ -5,13 +5,11 @@ import App.TypeClasses
 import App.Clock
 import App.Input
 import Graphics
-import Geometry
 import Data.Monoid
 import Control.Monad.State
 import Graphics.Rendering.OpenGL  ( clear, ClearBuffer(..) )
 import System.FilePath  ( (</>) )
 import Control.Lens hiding ( transform )
-import qualified Data.IntMap as IM
 
 data Game = GameLoad { _rsrcDef :: ResourceDef }
           | Game { _clock     :: Clock
@@ -153,9 +151,12 @@ endGame _ = putStrLn "Done."
 
 makeGameScene :: Scene DisplayObject
 makeGameScene = root
-    where root   = Scene 0 0 (tris ++ [text]) containers
-          containers = mempty 
+    where root   = Scene 0 0 (tris ++ [text]) paths
+          leftC  = 0
+          rightC = 1
+          paths  = foldl (flip initPath) mempty [leftC,rightC]
           text   = Node [] (TextString "Booyah!") $ scale 16 16 1 mempty
-          tris   = map tri [0..1000] 
-          tri i  = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty 
+          tris   = map tri [0..500]
+          tris'  = map tri [0..500]
+          tri i  = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty
 

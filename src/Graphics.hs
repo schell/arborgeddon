@@ -10,3 +10,4 @@ import Graphics.Texture     as G
 import Graphics.Resource    as G
 import Graphics.Scene       as G
 import Graphics.Scene.Types as G
+import Graphics.TypeClasses as G

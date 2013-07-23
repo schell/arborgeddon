@@ -6,10 +6,12 @@ import Graphics.Shaders
 import Graphics.Vbo
 import Graphics.Scene.Types
 import Graphics.Rendering.OpenGL.Raw
+import Graphics.TypeClasses
 import Data.Maybe
 import Data.Monoid
 import Control.Lens
 import Control.Monad
+import Control.Monad.State
 import qualified Data.Map    as M
 import qualified Data.IntMap as IM
 import Graphics.Rendering.OpenGL hiding ( Matrix, translate )
@@ -17,46 +19,16 @@ import Graphics.Rendering.OpenGL hiding ( Matrix, translate )
 
 {- Mutating the Scene -}
 
---addChild :: SceneGraph
---         -> SceneRoot
---         -> SceneRoot
---addChild c (SceneRoot i w h _) = SceneRoot i w h $ Just c
---
---addGraph :: SceneGraph  -- The child to add
---         -> SceneGraph  -- The parent to add it to
---         -> SceneGraph  -- The new parent after the addition
---addGraph c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Left c]) p
---
---addNode :: SceneNode  -- The child node to add
---        -> SceneGraph -- The parent graph
---        -> SceneGraph -- The new graph
---addNode c p@(SceneGraph _ ch) = execState (sGraphChildren .= ch ++ [Right c]) p
---
---add :: Either SceneGraph SceneNode
---    -> SceneGraph
---    -> SceneGraph
---add (Left g)  = addGraph g
---add (Right n) = addNode n
---
---removeGraph :: SceneGraph -- The child to remove
---            -> SceneGraph -- The parent to remove it from
---            -> SceneGraph -- The new parent after the removal
---removeGraph c g = flip execState g $ do
---    ch <- use sGraphChildren
---    sGraphChildren .= filter (/= Left c) ch
---
---removeNode :: SceneNode -- The child to remove
---           -> SceneGraph -- The parent to remove it from
---           -> SceneGraph -- The new parent after the removal
---removeNode c g = flip execState g $ do
---    ch <- use sGraphChildren
---    sGraphChildren .= filter (/= Right c) ch
---
---remove :: Either SceneGraph SceneNode -- The child to remove
---          -> SceneGraph -- The parent to remove it from
---          -> SceneGraph -- The new parent after the removal
---remove (Left g)  = removeGraph g
---remove (Right n) = removeNode n
+setPath :: [Int] -> State (Node a) ()
+setPath p = nodePath .= p
+
+addNode :: Node a -> Scene a -> Scene a
+addNode n = execState $ do
+    ns <- use sceneNodes
+    sceneNodes .= ns ++ [n]
+
+initPath :: Int -> PathMap -> PathMap
+initPath c = IM.insert c mempty
 
 {- Rendering the Scene -}
 

@@ -1,8 +1,11 @@
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Geometry.Types where
 
 import Data.SafeCopy
 import Data.Monoid
 import Control.Applicative
+import Graphics.TypeClasses
+import Graphics.Rendering.OpenGL ( GLfloat )
 
 {- Rectangle -}
 -- | A rect at (x,y) with (width,height).
@@ -31,14 +34,10 @@ type Vec4 a = (a, a, a, a)
 {- Transformations -}
 type Transform3d a = (Rotation3d a, Scale3d a, Translation3d a)
 
-scale :: Num a => a -> a -> a -> Transform3d a -> Transform3d a
-scale x' y' z' (r,Scale x y z,t) = (r,Scale (x*x') (y*y') (z*z'),t)
-
-translate :: Num a => a -> a -> a -> Transform3d a -> Transform3d a
-translate x' y' z' (r,s,Translation x y z) = (r,s,Translation (x+x') (y+y') (z+z'))
-
-rotate :: Num a => a -> a -> a -> Transform3d a -> Transform3d a
-rotate x' y' z' (Rotation x y z,s,t) = (Rotation (x+x') (y+y') (z+z'),s,t)
+instance Transformable (Transform3d GLfloat) where
+    scale x' y' z' (r,Scale x y z,t) = (r,Scale (x*x') (y*y') (z*z'),t)
+    translate x' y' z' (r,s,Translation x y z) = (r,s,Translation (x+x') (y+y') (z+z'))
+    rotate x' y' z' (Rotation x y z,s,t) = (Rotation (x+x') (y+y') (z+z'),s,t)
 
 data Rotation3d a = Rotation a a a deriving (Show, Eq)
 
