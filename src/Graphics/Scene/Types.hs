@@ -11,12 +11,6 @@ import qualified Data.IntMap as IM
 class SceneData a where
     renderData :: Matrix GLfloat -> ResourceStore -> a -> IO ()
 
-data DisplayObject = TextChar Char
-                   | TextString String
-                   | ColoredTri
-                   | ColoredSquare
-                   deriving (Show, Eq)
-
 data Scene a = Scene  { _sceneWidth      :: Int
                       , _sceneHeight     :: Int
                       , _sceneNodes      :: [Node a]
@@ -41,11 +35,6 @@ instance Transformable (Node a) where
     rotate x y z     = nodeTransform %~ rotate x y z
     translate x y z  = nodeTransform %~ translate x y z
 
-instance Transformable NodeContainer where
-    scale x y z (NodeContainer (i,pm))     = NodeContainer (i, IM.adjust (scale x y z) i pm)
-    rotate x y z (NodeContainer (i,pm))    = NodeContainer (i, IM.adjust (rotate x y z) i pm)
-    translate x y z (NodeContainer (i,pm)) = NodeContainer (i, IM.adjust (translate x y z) i pm)
-
 {- For building the scene -}
 data SceneGraph a = SceneGraph { _sgTransform :: Transform3d GLfloat
                                , _sgNodes     :: [SceneGraph a]
@@ -69,42 +58,6 @@ instance Transformable (SceneGraph a) where
 instance Monoid (SceneGraph a) where
     mempty = SceneGraph mempty []
     mappend a b = SceneGraph mempty [a,b]
-
-tri :: GLfloat -> GLfloat -> GLfloat -> SceneGraph DisplayObject
-tri x y z = scale x y z $ SceneNode mempty ColoredTri
-
-tri16x16 :: SceneGraph DisplayObject
-tri16x16 = tri 16 16 1
-
-triline :: SceneGraph DisplayObject
-triline = foldl addTri mempty [0..10]
-    where addTri r i = r <+ translate (i*8) 0 0 tri16x16
-
-
-(<^>) :: SceneGraph a -> SceneGraph a -> SceneGraph a
-(<^>) = mappend
-
-(+>) :: SceneGraph a -> SceneGraph a -> SceneGraph a
-(+>) s1 s2@SceneGraph{} = sgNodes %~ (++ [s1]) $ s2
-(+>) s1 s2@SceneNode{} =
-    -- Since the programmer wants to add some graph to a node
-    -- and nodes can't hold anything, we create a new graph
-    -- at the node's transform, set the node's transform to
-    -- the id and then add the other graph after the node.
-    let tfrm = s2 ^. snTransform
-        s2'  = SceneNode mempty $ _snObj s2
-        g    = sgTransform .~ tfrm $ sgNodes .~ [s2',s1] $ mempty
-    in g
-
-(<+) :: SceneGraph a -> SceneGraph a -> SceneGraph a
-(<+) = flip (+>)
-
-triBox :: SceneGraph DisplayObject
-triBox = foldl (<+) mempty [left,top,right,bottom]
-    where top    = triline
-          bottom = translate 0 100 0 top
-          left   = rotate 0 0 (pi/2) top
-          right  = translate 100 0 0 left
 
 sceneGraphToScene :: SceneGraph a -> Scene a
 sceneGraphToScene s = sceneTransforms .~ trfrms $ sceneNodes .~ nodes $ scene
@@ -131,3 +84,23 @@ showSceneGraph = showSG 0
     where showSG i s@SceneNode{}  = unwords [prefix i, show (_snObj s), show (_snTransform s)]
           showSG i s@SceneGraph{} = " " ++ prefix i ++ show (_sgTransform s) ++ concatMap (\s' -> '\n' :showSG (i+1) s') (_sgNodes s)
           prefix i = concat $ replicate i "    "
+
+(<^>) :: SceneGraph a -> SceneGraph a -> SceneGraph a
+(<^>) = mappend
+
+(+>) :: SceneGraph a -> SceneGraph a -> SceneGraph a
+(+>) s1 s2@SceneGraph{} = sgNodes %~ (++ [s1]) $ s2
+(+>) s1 s2@SceneNode{} =
+    -- Since the programmer wants to add some graph to a node
+    -- and nodes can't hold anything, we create a new graph
+    -- at the node's transform, set the node's transform to
+    -- the id and then add the other graph after the node.
+    let tfrm = s2 ^. snTransform
+        s2'  = SceneNode mempty $ _snObj s2
+        g    = sgTransform .~ tfrm $ sgNodes .~ [s2',s1] $ mempty
+    in g
+
+(<+) :: SceneGraph a -> SceneGraph a -> SceneGraph a
+(<+) = flip (+>)
+
+

@@ -4,6 +4,7 @@ module Game.Game where
 import App.TypeClasses
 import App.Clock
 import App.Input
+import Game.DisplayObject.TestObject
 import Graphics
 import Geometry
 import Data.Monoid
@@ -17,7 +18,7 @@ data Game = GameLoad { _rsrcDef :: ResourceDef }
           | Game { _clock     :: Clock
                  , _userInput :: Input
                  , _rsrc      :: ResourceStore
-                 , _scene     :: Scene DisplayObject
+                 , _scene     :: Scene TestObject
                  }
           | GameOver
 makeLenses ''Game
@@ -160,7 +161,7 @@ renderEvent = print
 endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
-makeGameScene :: Scene DisplayObject
+makeGameScene :: Scene TestObject
 makeGameScene = trace (show g) s
     where s = sceneGraphToScene g
           bgSquare = scale 100 100 1 $ SceneNode mempty ColoredSquare
