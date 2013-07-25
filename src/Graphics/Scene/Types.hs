@@ -2,12 +2,14 @@
 module Graphics.Scene.Types where
 
 import Geometry
-import Graphics.TypeClasses
-
+import Graphics.Resource
 import Control.Lens
 import Data.Monoid
 import Graphics.Rendering.OpenGL ( GLfloat )
 import qualified Data.IntMap as IM
+
+class SceneData a where
+    renderData :: Matrix GLfloat -> ResourceStore -> a -> IO ()
 
 data DisplayObject = TextChar Char
                    | TextString String

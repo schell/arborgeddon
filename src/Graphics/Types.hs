@@ -1,2 +1,0 @@
-module Graphics.Types where
-

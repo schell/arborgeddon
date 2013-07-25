@@ -1,13 +1,32 @@
 module Geometry.Matrix where
 
-import Geometry.Types
-
+import Geometry.Vector
 import Data.List        ( intercalate )
 import Data.Maybe       ( fromJust, fromMaybe )
 
 import qualified Data.List as L
 
+{- Rectangle -}
+
+-- | A rect at (x,y) with (width,height).
+data Rectangle a = Rectangle (Vec2 a) (Vec2 a) deriving (Show, Eq)
+
+toTriangleRect :: (Num a) => Rectangle a -> [a]
+toTriangleRect (Rectangle (x,y) (w,h)) = concat [tl, bl, br, br, tl, tr]
+    where tl = [x,y]
+          tr = [x+w,y]
+          bl = [x,y+h]
+          br = [x+w,y+h]
+
+toTriangles :: (Num a) => [Rectangle a] -> [a]
+toTriangles = concatMap toTriangleRect
+
+{- The Matrix -}
+
+type Matrix a = [Vector a]
+
 {- Projection Matrices -}
+
 orthoMatrix :: (Num t, Fractional t) => t -> t -> t -> t -> t -> t -> Matrix t
 orthoMatrix left right top bottom near far = [ [ 2/(right-left), 0, 0, -(right+left)/(right-left) ]
                                              , [ 0, 2/(top-bottom), 0, -(top+bottom)/(top-bottom) ]
@@ -17,6 +36,7 @@ orthoMatrix left right top bottom near far = [ [ 2/(right-left), 0, 0, -(right+l
 
 
 {- Affine Transformation Matrices -}
+
 scaleMatrix3d :: Num t => t -> t -> t -> Matrix t
 scaleMatrix3d x y z = [ [x, 0, 0, 0]
                       , [0, y, 0, 0]
@@ -41,6 +61,7 @@ translationMatrix3d x y z = [ [1, 0, 0, x]
                             ]
 
 {- Basic Matrix Math -}
+
 fromVector :: Int -> Int -> [a] -> Maybe [[a]]
 fromVector r c v = if length v `mod` r*c == 0
                    then Just $ groupByRowsOf c v

@@ -1,9 +1,17 @@
 module Geometry.Vector where
 
-import Geometry.Types
 import Prelude hiding ( subtract )
 
+{- Vector Types -}
+
+type Vector a = [a]
+
+type Vec2 a = (a, a)
+type Vec3 a = (a, a, a)
+type Vec4 a = (a, a, a, a)
+
 {- Vector functions -}
+
 -- | Computes the magnitude.
 magnitude :: Floating a => Vector a -> a
 magnitude = sqrt . sum . map (**2)

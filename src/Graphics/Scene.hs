@@ -6,31 +6,14 @@ import Graphics.Shaders
 import Graphics.Vbo
 import Graphics.Scene.Types
 import Graphics.Rendering.OpenGL.Raw
-import Graphics.TypeClasses
 import Data.Maybe
 import Data.Monoid
-import Debug.Trace
 import Control.Lens
 import Control.Monad
-import Control.Monad.State
 import qualified Data.Map    as M
 import qualified Data.IntMap as IM
 import Graphics.Rendering.OpenGL hiding ( Matrix, translate )
 
-
-{- Mutating the Scene -}
-
-setPath :: [Int] -> Node a -> Node a
-setPath p n = nodePath .~ p $ n
-
-addNode :: Node a -> Scene a -> Scene a
-addNode n = execState $ do
-    ns <- use sceneNodes
-    sceneNodes .= ns ++ [n]
-
-initPath :: Int -> PathMap -> PathMap
-initPath c = IM.insert c $ trace (show mat) mat
-    where mat = mempty
 
 {- Rendering the Scene -}
 

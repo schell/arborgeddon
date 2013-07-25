@@ -5,6 +5,7 @@ import App.TypeClasses
 import App.Clock
 import App.Input
 import Graphics
+import Geometry
 import Data.Monoid
 import Debug.Trace
 import Control.Monad.State
