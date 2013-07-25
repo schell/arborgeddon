@@ -44,11 +44,16 @@ renderScene rez (Scene w h ns ts) = unless (null ns) $ do
     mapM_ (renderNode rez ts) ns
 
 renderNode :: ResourceStore -> PathMap -> Node DisplayObject -> IO ()
-renderNode rez pm n =
-    let mTfrm = fmap mconcat $ mapM (`IM.lookup` pm) $ n ^. nodePath
-        mat   = applyTransformation (n ^. nodeTransform) $ identityN 4
-        mMat' = fmap (`applyTransformation` mat) mTfrm
-    in unless (isNothing mMat') $ renderDisplayObject (fromJust mMat') rez $ n ^. nodeObject
+renderNode rez pm n = renderDisplayObject mat rez $ n ^. nodeObject
+    where mat = getCompoundMatrix pm n
+
+getCompoundMatrix :: PathMap -> Node a -> Matrix GLfloat
+getCompoundMatrix pm n =
+    let mTfrms = mapM (`IM.lookup` pm) $ n ^. nodePath
+        mat    = transformToMatrix $ n ^. nodeTransform
+        mMat'  = fmap fldMat mTfrms
+        fldMat = foldr (\t m -> transformToMatrix t `multiply` m) mat
+    in fromMaybe mat mMat'
 
 renderDisplayObject :: Matrix GLfloat -> ResourceStore -> DisplayObject -> IO ()
 renderDisplayObject mat rez ColoredTri = do
@@ -63,6 +68,21 @@ renderDisplayObject mat rez ColoredTri = do
               bindInterleavedVbo vbo
               drawArrays Triangles 0 6
       else do putStrLn "Could not render Tri."
+              print mVbo
+              print mPgm
+
+renderDisplayObject mat rez ColoredSquare = do
+    let mVbo = M.lookup "square" $ rez ^. vboMap
+        mPgm = M.lookup "color" $ rez ^. programMap
+        vbo  = fromJust mVbo
+        shdr = fromJust mPgm
+        ufrm = UpdateMat4 "modelview" mat
+    if isJust mVbo &&
+        isJust mPgm
+      then do True <- updateUniform shdr ufrm
+              bindInterleavedVbo vbo
+              drawArrays Triangles 0 12
+      else do putStrLn "Could not render Square."
               print mVbo
               print mPgm
 

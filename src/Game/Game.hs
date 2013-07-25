@@ -35,9 +35,10 @@ loadGame = GameLoad resource
      where resource = ResourceDef pgrams texs vbos
            pgrams   = [fontShaderProgram,colorShaderProgram]
            texs     = [fontTexDef]
-           vbos     = [triDef, fontDef]
+           vbos     = [squareDef, triDef, fontDef]
            fontDef  = VboDef "font" [fontVertArr, fontUVArr]
-           triDef   = VboDef "tri" [triVerts, colorVerts]
+           triDef   = VboDef "tri" [triVerts, triRBGs]
+           squareDef= VboDef "square" [squareVerts, squareRBGs] 
            fontTexDef   = TexDef "font" 0 (texDir </> "text.png") runTexParams
            fontPs  = concat $ replicate 94 [0,0,0
                                            ,1,0,0
@@ -49,10 +50,18 @@ loadGame = GameLoad resource
                               ,x*w+w,y*h+h
                               ,x*w,y*h+h] | y <- [0..5], x <- [0..31], w <- [8/256], h <- [8/256] ]
            triVerts   = AttributeData (Attribute Vec3 "position") triangle3d
-           colorVerts = AttributeData (Attribute Vec4 "color") [ 1, 0, 0, 1
+           triRBGs    = AttributeData (Attribute Vec4 "color") [ 1, 0, 0, 1
                                                                , 0, 1, 0, 1
                                                                , 0, 0, 1, 1
                                                                ]
+           squareVerts = AttributeData (Attribute Vec3 "position") texSquare3d
+           squareRBGs  = AttributeData (Attribute Vec4 "color") [ 1, 1, 0, 1
+                                                                , 0, 1, 1, 1
+                                                                , 1, 0, 1, 1
+                                                                , 1, 0, 1, 1
+                                                                , 1, 1, 0, 1
+                                                                , 1, 1, 1, 1
+                                                                ]
            fontVertArr = AttributeData (Attribute Vec3 "position") fontPs
            fontUVArr   = AttributeData (Attribute Vec2 "uv") fontUVs
 
@@ -151,13 +160,12 @@ endGame :: t -> IO ()
 endGame _ = putStrLn "Done."
 
 makeGameScene :: Scene DisplayObject
-makeGameScene = trace (show root) root
-    where root      = Scene 0 0 (tris' ++ tris ++ [text]) paths
-          leftC     = 0
-          rightC    = 1
-          NodeContainer (_,paths) = rotate 0 0 (pi/2) $ NodeContainer (rightC, foldl (flip initPath) mempty [leftC,rightC])
-          text      = Node [] (TextString "Booyah!") $ scale 16 16 1 mempty
-          tris      = map tri [100]
-          tris'     = map (setPath [rightC]) tris
-          tri i     = Node [] ColoredTri $ scale 16 16 1 $ translate i i 0 mempty
+makeGameScene = trace (show g) s
+    where s = sceneGraphToScene g
+          bgSquare = scale 100 100 1 $ SceneNode mempty ColoredSquare
+          smSquare = scale 25 25 1 $ SceneNode mempty ColoredSquare
+          points   = [ (-25,-25), (100,-25), (100,100), (-25,100) ] 
+          smSquares= map (\(x, y) -> translate x y 0 smSquare) points 
+          squares  = foldl (<+) mempty $ bgSquare:smSquares 
+          g = (mempty <+ bgSquare) <+ (translate 100 100 0 $ rotate 0 0 (pi/4) squares)
 

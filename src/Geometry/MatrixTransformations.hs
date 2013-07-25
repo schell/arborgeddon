@@ -7,6 +7,9 @@ applyTransformation :: (Num a, RealFrac a, Floating a, Show a) => Transform3d a 
 applyTransformation t = rotate3d rx ry rz . scale3d sx sy sz . translate3d tx ty tz
     where (Rotation rx ry rz, Scale sx sy sz, Translation tx ty tz) = t
 
+transformToMatrix :: (Num a, RealFrac a, Floating a, Show a) => Transform3d a -> Matrix a
+transformToMatrix = (`applyTransformation` identityN 4)
+
 {- Transforming Matrices -}
 scale3d :: (Num a, RealFrac a, Floating a, Show a) => a -> a -> a -> Matrix a -> Matrix a
 scale3d x y z m = multiply m s
