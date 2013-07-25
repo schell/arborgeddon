@@ -9,4 +9,6 @@ cabal-dev
 .virthualenv
 *.swp
 *.swo
+.DS_Store
+*/.DS_Store
 state/**

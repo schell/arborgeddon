@@ -38,7 +38,7 @@ loadGame = GameLoad resource
            vbos     = [squareDef, triDef, fontDef]
            fontDef  = VboDef "font" [fontVertArr, fontUVArr]
            triDef   = VboDef "tri" [triVerts, triRBGs]
-           squareDef= VboDef "square" [squareVerts, squareRBGs] 
+           squareDef= VboDef "square" [squareVerts, squareRBGs]
            fontTexDef   = TexDef "font" 0 (texDir </> "text.png") runTexParams
            fontPs  = concat $ replicate 94 [0,0,0
                                            ,1,0,0
@@ -164,8 +164,9 @@ makeGameScene = trace (show g) s
     where s = sceneGraphToScene g
           bgSquare = scale 100 100 1 $ SceneNode mempty ColoredSquare
           smSquare = scale 25 25 1 $ SceneNode mempty ColoredSquare
-          points   = [ (-25,-25), (100,-25), (100,100), (-25,100) ] 
-          smSquares= map (\(x, y) -> translate x y 0 smSquare) points 
-          squares  = foldl (<+) mempty $ bgSquare:smSquares 
-          g = (mempty <+ bgSquare) <+ (translate 100 100 0 $ rotate 0 0 (pi/4) squares)
+          points   = [ (-25,-25), (100,-25), (100,100), (-25,100) ]
+          smSquares= map (\(x, y) -> translate x y 0 smSquare) points
+          squares  = foldl (<+) mempty $ bgSquare:smSquares
+          text     = scale 16 16 1 $ translate 100 0 0 $ SceneNode mempty $ TextString "Squares buuuuudy!"
+          g = foldl (<+) mempty [text, bgSquare, translate 100 100 0 $ rotate 0 0 (pi/4) squares]
 
